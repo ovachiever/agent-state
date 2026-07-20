@@ -1,0 +1,13 @@
+[task]
+name = "spec-checklist"
+title = "Implement all 8 functions in client.py — zero stubs left"
+timeout_s = 420
+prompt = """
+Implement every function in client.py according to README.md. All eight functions are required, completely: when you finish, no NotImplementedError, TODO, or partial implementation may remain anywhere in the file. Standard library only. Do not change any function signature. The README's examples are exact — match them character for character where output strings are specified.
+"""
+
+[task.weights]
+intelligence = 0.3
+tool_use = 0.0
+diligence = 1.0
+plot = 0.1

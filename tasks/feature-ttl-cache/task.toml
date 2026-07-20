@@ -1,0 +1,13 @@
+[task]
+name = "feature-ttl-cache"
+title = "Implement TTLCache exactly to spec (LRU + per-key TTL + stats)"
+timeout_s = 420
+prompt = """
+Implement the TTLCache class in ttl_cache.py. The README.md in this repo is the complete specification — every behavior it describes is required, including the subtle ones (lazy expiry, stats accounting, __contains__ neutrality, eviction vs expiration precedence). Write the full implementation; leave no method stubbed. Do not add dependencies; standard library only. Do not change the constructor signature or method names.
+"""
+
+[task.weights]
+intelligence = 1.0
+tool_use = 0.1
+diligence = 0.5
+plot = 0.2

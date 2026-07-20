@@ -1,0 +1,39 @@
+[task]
+name = "constraint-gauntlet"
+title = "Build loggen.py holding 12 constraints scattered through a long brief"
+timeout_s = 420
+prompt = """
+Hey — we need a tiny internal utility for the observability onboarding workshop next month. I'm going to braindump the whole context here so you have everything; the requirements are scattered through this note, and all of them matter, so read the whole thing before you start. The deliverable is a single file called loggen.py in the root of this repo. Nothing else — no package scaffolding, no tests directory, no Makefile, just that one file.
+
+Background: the workshop teaches new hires to read log streams before we let them near production dashboards. We used to hand out a CSV of real (redacted) logs, but legal got twitchy about it last quarter, so now we generate synthetic ones live on stage. The old generator was a bash one-liner that piped /dev/urandom through awk and nobody could explain it, least of all the person presenting. Hence this.
+
+The tool is a command-line script. It takes --count N for how many log lines to emit, defaulting to 10, and --level with the choices debug, info, warn, error, defaulting to info; whichever level is chosen is the level every emitted line carries. There's also --seed N taking an integer, and --format with choices text and json, defaulting to text. Standard library only — we've been burned by the workshop laptops not having deps installed, so if it imports anything outside the Python standard library it's broken by definition.
+
+A note on reproducibility because it's the whole point of the seed: when --seed is provided, the output must be fully deterministic — run it twice with the same seed and arguments, get byte-identical output. Presenters put the seed on the slide so the room sees the same stream. Without a seed, any randomness source is fine.
+
+Now, timestamps. This bit is non-negotiable and it's where the old tool embarrassed us: the timestamps are VIRTUAL. They start at exactly 2026-01-01T00:00:00 and advance exactly one second per line, formatted as ISO 8601 seconds precision (YYYY-MM-DDTHH:MM:SS). Never read the wall clock — a demo recorded in rehearsal must replay identically on stage.
+
+We debated YAML as a third output format and decided no — please don't add it, someone always tries. Same for a --quiet flag and colorized output: out of scope, don't.
+
+Text format lines look exactly like this: an open square bracket, the timestamp, close bracket, a space, the level name in UPPERCASE padded with spaces on the right to a width of five characters, then a single space, then the message. JSON format is one JSON object per line with the keys in this exact order: ts, level, msg — level lowercase there, same virtual timestamp in ts.
+
+The messages themselves rotate randomly (seeded, per the above) from exactly this fixed set of six, verbatim, no additions and no rewording:
+"cache warmed"
+"connection pool resized"
+"checkpoint written"
+"queue depth nominal"
+"handshake accepted"
+"retention sweep complete"
+
+Edge behavior, because a trainee WILL type these: --count 0 emits nothing at all and exits 0. A negative count prints exactly "error: count must be >= 0" to stderr and exits with code 3. On any successful run, stderr stays completely silent — output goes to stdout and nowhere else.
+
+Two more things and I'll stop. First, the workshop harness imports the script as a module, so expose a function build_lines(count, level, seed, fmt) that returns the list of formatted line strings — and importing the module must not run the CLI or print anything (main guard, the usual). The CLI and build_lines must agree exactly: same arguments, same lines. Second, versioning: --version prints exactly "loggen 1.4.2" and exits 0, because the harness pins on that string.
+
+That's everything. One file, loggen.py, repo root. Read back through the note if you need to — every requirement above is load-bearing.
+"""
+
+[task.weights]
+intelligence = 0.3
+tool_use = 0.0
+diligence = 0.3
+plot = 1.0

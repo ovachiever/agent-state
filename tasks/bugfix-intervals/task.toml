@@ -1,0 +1,13 @@
+[task]
+name = "bugfix-intervals"
+title = "Fix merge_intervals to fully satisfy its docstring spec"
+timeout_s = 360
+prompt = """
+The file intervals.py contains merge_intervals, which has bugs. The docstring is the complete spec — read it carefully and make the implementation satisfy every clause, including edge cases. Do not change the docstring or the function's name/signature. The basic test in test_basic.py already passes; that is not sufficient. Fix the implementation so it is fully correct against the spec.
+"""
+
+[task.weights]
+intelligence = 1.0
+tool_use = 0.1
+diligence = 0.2
+plot = 0.1

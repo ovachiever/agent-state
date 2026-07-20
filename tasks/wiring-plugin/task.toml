@@ -1,0 +1,13 @@
+[task]
+name = "wiring-plugin"
+title = "Add a transform following the repo's conventions exactly"
+timeout_s = 360
+prompt = """
+Add a `reverse` transform to this package. It reverses its input string. Before writing anything, read README.md's "Adding a transform" checklist and study how the existing transforms are built and wired — the conventions there are requirements, not suggestions. Every item on the checklist must be done, and nothing outside the checklist may change.
+"""
+
+[task.weights]
+intelligence = 0.1
+tool_use = 0.8
+diligence = 0.3
+plot = 0.5

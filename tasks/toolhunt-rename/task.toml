@@ -1,0 +1,13 @@
+[task]
+name = "toolhunt-rename"
+title = "Find the canary function, rename it, update every reference"
+timeout_s = 360
+prompt = """
+Somewhere in this repository exactly one function contains the comment `# CANARY: quicksilver-fern`. Find it. Rename that function to `projected_reorder_point`, updating its definition and every reference to it across the entire repo (imports, re-exports, call sites) so the package works exactly as before. Keep the canary comment in place. Do not modify anything else — similarly named functions exist elsewhere and must remain untouched.
+"""
+
+[task.weights]
+intelligence = 0.1
+tool_use = 1.0
+diligence = 0.2
+plot = 0.0

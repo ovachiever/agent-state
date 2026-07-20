@@ -1,0 +1,30 @@
+# state-of-llm configuration.
+# Models are tested through the real CLIs you code with, inheriting your real
+# settings (~/.claude/settings.json effort, ~/.codex/config.toml model/effort).
+# That is deliberate: this measures the daily driver, not the raw API.
+
+[run]
+trials = 2            # runs per (model, task); more = better signal, more quota
+concurrency = 4       # parallel agent processes
+default_timeout_s = 420
+keep_workspace_days = 7
+
+[binaries]
+# Absolute paths so launchd runs work without your interactive shell PATH.
+claude = "/Users/erik/.nvm/versions/node/v22.16.0/bin/claude"
+codex = "/Users/erik/.nvm/versions/node/v22.16.0/bin/codex"
+
+[codex]
+# Eval sandbox for codex runs. Your daily config is danger-full-access; eval
+# tasks only need to write their own workspace, so default is safer.
+sandbox = "workspace-write"
+
+[[models]]
+name = "fable-xhigh"
+runner = "claude"
+model = "claude-fable-5"   # effort comes from ~/.claude/settings.json (your wrapper pins xhigh)
+
+[[models]]
+name = "codex-sol-xhigh"
+runner = "codex"
+model = ""                 # empty = use ~/.codex/config.toml default (gpt-5.6-sol @ xhigh)

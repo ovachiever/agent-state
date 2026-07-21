@@ -1,0 +1,22 @@
+[task]
+name = "toolhunt-deep"
+title = "Deep rename: one canary function, every reference, across a large tree"
+timeout_s = 480
+prompt = """
+Somewhere in this repository exactly one function contains the comment `# CANARY: umber-lattice` (near-miss canary comments exist elsewhere; only the exact string counts). Find that function and rename it to `consolidate_partition_metrics`, updating every reference to the old name across the entire tree so the package works exactly as before. Completeness means all of these, explicitly:
+
+- the function definition itself (keep the canary comment in place),
+- both package `__init__.py` re-export layers,
+- every call site in every package,
+- the usage example inside a docstring,
+- the `module:function` dotted-path string in the step registry (the function is referenced by string as well as by import, and that registry lookup must still work),
+- the mention in docs/ARCHITECTURE.md.
+
+The repo deliberately contains decoys: similarly named functions, `_v1`/`_legacy` suffixed variants, and string constants that merely resemble the target. Every decoy and every unrelated file must remain byte-for-byte untouched, so a blind global search-and-replace will fail. Change exactly what the rename requires and nothing else.
+"""
+
+[task.weights]
+intelligence = 0.1
+tool_use = 1.0
+diligence = 0.5
+plot = 0.2

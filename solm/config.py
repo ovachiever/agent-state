@@ -44,6 +44,7 @@ class ModelSpec:
     runner: str  # "claude" | "codex"
     model: str = ""
     extra_args: list[str] = field(default_factory=list)
+    enabled: bool = True  # disabled specs run only via `solm run --models <name>`
 
 
 @dataclass
@@ -85,10 +86,12 @@ class Config:
     concurrency: int
     default_timeout_s: int
     keep_workspace_days: int
-    models: list[ModelSpec]
+    models: list[ModelSpec]          # enabled specs — what a default run uses
+    all_models: list[ModelSpec]      # every spec, for explicit --models selection
     claude_bin: str
     codex_bin: str
     codex_sandbox: str
+    claude_strip_api_key: bool
     stats: StatsConfig
 
 
@@ -112,17 +115,19 @@ def load_config(path: Path | None = None) -> Config:
     run = raw.get("run", {})
     bins = raw.get("binaries", {})
     stats_raw = raw.get("stats", {})
-    models = [
+    all_models = [
         ModelSpec(
             name=m["name"],
             runner=m["runner"],
             model=m.get("model", ""),
             extra_args=list(m.get("extra_args", [])),
+            enabled=bool(m.get("enabled", True)),
         )
         for m in raw.get("models", [])
     ]
+    models = [m for m in all_models if m.enabled]
     if not models:
-        raise SystemExit("config.toml defines no [[models]]")
+        raise SystemExit("config.toml defines no enabled [[models]]")
 
     return Config(
         trials=int(run.get("trials", 6)),
@@ -130,9 +135,11 @@ def load_config(path: Path | None = None) -> Config:
         default_timeout_s=int(run.get("default_timeout_s", 480)),
         keep_workspace_days=int(run.get("keep_workspace_days", 7)),
         models=models,
+        all_models=all_models,
         claude_bin=_resolve_bin("claude", bins.get("claude", "")),
         codex_bin=_resolve_bin("codex", bins.get("codex", "")),
         codex_sandbox=raw.get("codex", {}).get("sandbox", "workspace-write"),
+        claude_strip_api_key=bool(raw.get("claude", {}).get("strip_api_key", True)),
         stats=StatsConfig(
             material_drop=float(stats_raw.get("material_drop", 6.0)),
             baseline_window=int(stats_raw.get("baseline_window", 14)),

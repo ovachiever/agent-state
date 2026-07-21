@@ -63,16 +63,17 @@ def merge_results(results: list[RunResult]) -> RunResult:
     )
 
 
-def _clean_env() -> dict:
+def _clean_env(extra_strip: tuple[str, ...] = ()) -> dict:
     """Strip nested-session markers so headless children start clean."""
     env = dict(os.environ)
     for key in list(env):
-        if key.startswith(("CLAUDECODE", "CLAUDE_CODE")):
+        if key.startswith(("CLAUDECODE", "CLAUDE_CODE")) or key in extra_strip:
             del env[key]
     return env
 
 
-def _exec(cmd: list[str], cwd: Path, timeout: int, log_prefix: str) -> tuple[str, str, int | None, float, bool]:
+def _exec(cmd: list[str], cwd: Path, timeout: int, log_prefix: str,
+          extra_strip: tuple[str, ...] = ()) -> tuple[str, str, int | None, float, bool]:
     """Run a subprocess, tee stdout/stderr to workspace logs."""
     solm_dir = cwd / ".solm"
     solm_dir.mkdir(exist_ok=True)
@@ -82,7 +83,7 @@ def _exec(cmd: list[str], cwd: Path, timeout: int, log_prefix: str) -> tuple[str
         proc = subprocess.run(
             cmd,
             cwd=cwd,
-            env=_clean_env(),
+            env=_clean_env(extra_strip),
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -102,6 +103,10 @@ def _exec(cmd: list[str], cwd: Path, timeout: int, log_prefix: str) -> tuple[str
 class ClaudeRunner:
     def __init__(self, cfg: Config):
         self.bin = cfg.claude_bin
+        # Billing control: with an exported ANTHROPIC_API_KEY, headless claude
+        # bills the API (~$1+/run at xhigh) instead of the Max plan. Stripping
+        # it makes runs use the claude.ai login. config.toml [claude] strip_api_key.
+        self.env_strip = ("ANTHROPIC_API_KEY",) if cfg.claude_strip_api_key else ()
 
     def _base_cmd(self, spec: ModelSpec) -> list[str]:
         cmd = [
@@ -127,7 +132,9 @@ class ClaudeRunner:
         return self._finish(cmd, workspace, timeout, log_prefix)
 
     def _finish(self, cmd: list[str], workspace: Path, timeout: int, log_prefix: str) -> RunResult:
-        stdout, stderr, rc, duration, timed_out = _exec(cmd, workspace, timeout, log_prefix)
+        stdout, stderr, rc, duration, timed_out = _exec(
+            cmd, workspace, timeout, log_prefix, extra_strip=self.env_strip
+        )
         if timed_out:
             return RunResult(status="timeout", duration_s=duration, error=f"timeout after {timeout}s")
 

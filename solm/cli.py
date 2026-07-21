@@ -18,11 +18,11 @@ def cmd_run(args) -> None:
     models = cfg.models
     if args.models:
         wanted = set(args.models.split(","))
-        unknown = wanted - {m.name for m in models}
+        unknown = wanted - {m.name for m in cfg.all_models}
         if unknown:
             raise SystemExit(f"unknown models: {', '.join(sorted(unknown))} "
-                             f"(known: {', '.join(m.name for m in models)})")
-        models = [m for m in models if m.name in wanted]
+                             f"(known: {', '.join(m.name for m in cfg.all_models)})")
+        models = [m for m in cfg.all_models if m.name in wanted]
     task_names = args.tasks.split(",") if args.tasks else None
     if args.quick and not task_names:
         available = {t.name for t in load_tasks()}
@@ -32,25 +32,33 @@ def cmd_run(args) -> None:
     date = harness.run_batch(cfg, models, tasks, trials)
 
     if args.until_confident:
-        trials_done = trials
-        while trials_done < args.max_trials:
-            _, scores, *_ = report.compute(date)
-            needy = [m for m, s in scores.items() if s.needs_escalation]
-            if not needy:
-                break
-            step = min(2, args.max_trials - trials_done)
-            print(f"escalating: verdict underpowered for {', '.join(sorted(needy))} — +{step} trials")
-            escalate_models = [m for m in models if m.name in needy]
-            harness.run_batch(cfg, escalate_models, tasks, step, trial_offset=trials_done)
-            trials_done += step
+        _escalate_until_confident(cfg, models, tasks, date, trials, args.max_trials)
     report.render(date)
+
+
+def _escalate_until_confident(cfg, models, tasks, date, base_trials, max_trials) -> None:
+    from solm import harness, report
+
+    trials_done = base_trials
+    while trials_done < max_trials:
+        _, scores, *_ = report.compute(date)
+        needy = [m for m, s in scores.items() if s.needs_escalation]
+        if not needy:
+            break
+        step = min(2, max_trials - trials_done)
+        print(f"escalating: verdict underpowered for {', '.join(sorted(needy))} — +{step} trials")
+        escalate_models = [m for m in models if m.name in needy]
+        harness.run_batch(cfg, escalate_models, tasks, step, trial_offset=trials_done)
+        trials_done += step
 
 
 def cmd_daily(args) -> None:
     from solm import harness, report
 
     cfg = load_config()
-    date = harness.run_batch(cfg, cfg.models, load_tasks(), cfg.trials)
+    tasks = load_tasks()
+    date = harness.run_batch(cfg, cfg.models, tasks, cfg.trials)
+    _escalate_until_confident(cfg, cfg.models, tasks, date, cfg.trials, max_trials=12)
     report.render(date)
     path = report.save_markdown(date)
     print(f"report saved: {path}")

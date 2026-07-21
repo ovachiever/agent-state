@@ -26,10 +26,11 @@ codex = "/Users/erik/.nvm/versions/node/v22.16.0/bin/codex"
 sandbox = "workspace-write"
 
 [claude]
-# With an exported ANTHROPIC_API_KEY, headless claude bills the API
-# (observed ~$1.10/run at xhigh) instead of your Max plan. true = strip the
-# key so eval runs use your claude.ai login and draw plan quota instead.
-strip_api_key = true
+# Billing switch. false = eval runs bill the API via your exported
+# ANTHROPIC_API_KEY (observed 2026-07-21: ~$1.34/run avg at xhigh, ~$80/day
+# at 4 fable trials, ~$120/day at 6). true = strip the key so runs draw your
+# Max plan quota instead (protects dollars, taxes the quota you code with).
+strip_api_key = false
 
 # Effort is pinned per model spec so the yardstick can't drift with settings
 # edits: claude via --effort, codex via -c model_reasoning_effort.
@@ -41,12 +42,14 @@ name = "fable-xhigh"
 runner = "claude"
 model = "claude-fable-5"
 extra_args = ["--effort", "xhigh"]
+trials = 4    # API dollars: ~$80/day base (escalation adds only on ambiguous days)
 
 [[models]]
 name = "codex-sol-xhigh"
 runner = "codex"
 model = "gpt-5.6-sol"
 extra_args = ["-c", 'model_reasoning_effort="xhigh"']
+# no trials override: ChatGPT-plan quota, $0 marginal, keep full 6
 
 [[models]]
 name = "opus-xhigh"

@@ -45,6 +45,7 @@ class ModelSpec:
     model: str = ""
     extra_args: list[str] = field(default_factory=list)
     enabled: bool = True  # disabled specs run only via `solm run --models <name>`
+    trials: int | None = None  # per-model override of [run] trials (cost lever)
 
 
 @dataclass
@@ -122,6 +123,7 @@ def load_config(path: Path | None = None) -> Config:
             model=m.get("model", ""),
             extra_args=list(m.get("extra_args", [])),
             enabled=bool(m.get("enabled", True)),
+            trials=int(m["trials"]) if "trials" in m else None,
         )
         for m in raw.get("models", [])
     ]

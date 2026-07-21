@@ -178,11 +178,11 @@ def run_batch(
         (model, task, trial)
         for model in models
         for task in tasks
-        for trial in range(trial_offset + 1, trial_offset + trials + 1)
+        for trial in range(trial_offset + 1, trial_offset + (model.trials or trials) + 1)
     ]
+    per_model = ", ".join(f"{m.name} x{m.trials or trials}" for m in models)
     _say(f"state-of-llm batch {batch_id}: {len(jobs)} runs "
-         f"({len(models)} models x {len(tasks)} tasks x {trials} trials), "
-         f"concurrency {cfg.concurrency}")
+         f"({len(tasks)} tasks; trials: {per_model}), concurrency {cfg.concurrency}")
 
     conn = db.connect()
     fp = fingerprint.collect(cfg, tasks)

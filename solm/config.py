@@ -77,8 +77,11 @@ class StatsConfig:
     baseline_window: int = 14    # trailing days used for task-paired baselines
     min_baseline_days: int = 3   # a task needs this many prior days to enter pairing
     bootstrap_iters: int = 2000
-    cusum_k_sigma: float = 0.5   # slack per day, in sigma
-    cusum_h_sigma: float = 4.0   # alarm threshold, in sigma
+    # Monte-Carlo calibrated (40 seeds, 40-day clean horizon): 0 false alarms,
+    # 36/40 slow-drift alarms, 25/40 same-day RED on a 16-pt drop at 1 trial.
+    cusum_k_sigma: float = 0.6   # slack per day, in sigma
+    cusum_h_sigma: float = 6.0   # alarm threshold, in sigma
+    cusum_gate: float = 2.0      # today must look at least this bad (pts) to alarm
 
 
 @dataclass

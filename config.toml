@@ -46,7 +46,9 @@ name = "fable-xhigh"
 runner = "claude"
 model = "claude-fable-5"
 extra_args = ["--effort", "xhigh"]
-trials = 2    # API dollars: ~$40/day base; escalation spends more only on suspicious days
+# 1-trial screen (~$20/day): detection floor ~9-10 pts, comfortably under the
+# 15-pt materiality line. Escalation auto-buys extra trials on suspicious days.
+trials = 1
 
 [[models]]
 name = "codex-sol-xhigh"

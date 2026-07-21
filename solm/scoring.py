@@ -31,7 +31,8 @@ ABS_YELLOW = 60.0
 ABS_FLOOR_RED = 55.0
 LAZINESS_PENALTY_PER_FLAG = 5.0
 LAZINESS_PENALTY_CAP = 30.0
-CUSUM_MIN_DAYS = 5
+CUSUM_MIN_DAYS = 8
+CUSUM_MIN_ANCHOR = 5   # prior days needed before a deviation is trustworthy
 SIGMA_FLOOR = 2.0  # points; guards divide-by-zero on eerily stable histories
 
 
@@ -194,12 +195,23 @@ def paired_day_effect(
     if not with_bootstrap:
         return round(point, 2), None, None, None, len(paired)
 
+    # Two-level bootstrap: resample tasks (clusters), then trials within each.
+    # Task-level resampling is what keeps the CI honest at 1 trial/task, where
+    # within-task resampling alone would degenerate to zero variance.
     rng = random.Random(f"{model}:{date}")  # deterministic per (model, date)
     boots = []
     for _ in range(stats.bootstrap_iters):
-        t_s = {t: [rng.choice(today[t]) for _ in today[t]] for t in paired}
-        b_s = {t: [rng.choice(baselines[t]) for _ in baselines[t]] for t in paired}
-        boots.append(effect_of(t_s, b_s))
+        sampled = [rng.choice(paired) for _ in paired]
+        acc = 0.0
+        w_total = sum(weights.get(t, 0.0) for t in sampled)
+        if w_total <= 0:
+            continue
+        for t in sampled:
+            t_scores = [rng.choice(today[t]) for _ in today[t]]
+            b_scores = [rng.choice(baselines[t]) for _ in baselines[t]]
+            delta = statistics.fmean(t_scores) - statistics.fmean(b_scores)
+            acc += (weights.get(t, 0.0) / w_total) * delta
+        boots.append(acc * 100.0)
     boots.sort()
     n = len(boots)
     ci_low = boots[int(0.025 * n)]
@@ -209,32 +221,27 @@ def paired_day_effect(
     return round(point, 2), round(ci_low, 2), round(ci_high, 2), round(mde, 2), len(paired)
 
 
-def day_effect_series(
-    all_runs: list[dict], tasks: list[TaskSpec], model: str, upto_date: str, stats: StatsConfig
-) -> list[tuple[str, float]]:
-    """Historical (date, effect) points for the drift detector."""
-    dates = sorted({r["date"] for r in all_runs if r["model"] == model and r["date"] < upto_date})
-    series = []
-    by_date: dict[str, list[dict]] = {}
-    for r in all_runs:
-        if r["model"] == model:
-            by_date.setdefault(r["date"], []).append(r)
-    for d in dates:
-        effect, *_ , paired = paired_day_effect(
-            by_date[d], all_runs, tasks, model, d, stats, with_bootstrap=False
-        )
-        if effect is not None and paired > 0:
-            series.append((d, effect))
-    return series
+def anchored_deviations(history: list[float]) -> list[float]:
+    """Per-day composite deviations from the median of strictly PRIOR days.
+
+    Anchoring on prior data only keeps successive deviations (near-)independent;
+    a rolling shared baseline would correlate them and let pure noise
+    accumulate into a fake drift (observed: ~15% false alarms in simulation).
+    """
+    devs = []
+    for i in range(CUSUM_MIN_ANCHOR, len(history)):
+        anchor = statistics.median(history[:i])
+        devs.append(history[i] - anchor)
+    return devs
 
 
 def cusum(
-    series: list[float], today_effect: float | None, stats: StatsConfig
+    series: list[float], today_dev: float | None, stats: StatsConfig
 ) -> tuple[float | None, bool]:
     """One-sided CUSUM on daily deficits. Returns (statistic in sigmas, alarm)."""
     points = list(series)
-    if today_effect is not None:
-        points.append(today_effect)
+    if today_dev is not None:
+        points.append(today_dev)
     if len(points) < CUSUM_MIN_DAYS:
         return None, False
     med = statistics.median(points)
@@ -245,7 +252,11 @@ def cusum(
     s = 0.0
     for e in points:
         s = max(0.0, s + (-e - k))
-    return round(s / sigma, 2), s >= h
+    alarm = s >= h
+    # A drift alarm on a day that itself looks fine is stale news, not a verdict.
+    if today_dev is not None and today_dev > -stats.cusum_gate:
+        alarm = False
+    return round(s / sigma, 2), alarm
 
 
 def history_composites(
@@ -320,8 +331,14 @@ def score_day(
         score.day_effect, score.ci_low, score.ci_high = effect, lo, hi
         score.mde, score.paired_tasks = mde, paired
 
-        series = [e for _, e in day_effect_series(all_runs, tasks, model, score.date, stats)]
-        score.cusum_sigma, score.cusum_alarm = cusum(series, effect, stats)
+        drift_history = history_composites(all_runs, tasks, model, score.date, 60)
+        today_dev = (
+            score.composite - statistics.median(drift_history)
+            if len(drift_history) >= CUSUM_MIN_ANCHOR else None
+        )
+        score.cusum_sigma, score.cusum_alarm = cusum(
+            anchored_deviations(drift_history), today_dev, stats
+        )
 
         history = history_composites(all_runs, tasks, model, score.date, stats.baseline_window)
         score.history = history

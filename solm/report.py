@@ -96,7 +96,9 @@ def render(date: str | None = None, console: Console | None = None) -> None:
 
         body = Text()
         for dim in DIMENSIONS:
-            body.append(f"  {DIM_LABEL[dim]:<15} {s.dims[dim]:5.1f}\n")
+            v = s.dims[dim]
+            body.append(f"  {DIM_LABEL[dim]:<15} {v:5.1f}\n" if v is not None
+                        else f"  {DIM_LABEL[dim]:<15}     —\n")
         if s.day_effect is not None:
             body.append(
                 f"  {'Day effect':<15} {s.day_effect:+.1f} pts "
@@ -159,7 +161,8 @@ def save_markdown(date: str | None = None) -> str:
         lines.append(f"## {VERDICT_EMOJI[s.verdict]} {model}: {s.verdict} {s.composite:.0f} — {VERDICT_CALL[s.verdict]}")
         lines.append("")
         for dim in DIMENSIONS:
-            lines.append(f"- {DIM_LABEL[dim]}: {s.dims[dim]:.1f}")
+            v = s.dims[dim]
+            lines.append(f"- {DIM_LABEL[dim]}: {v:.1f}" if v is not None else f"- {DIM_LABEL[dim]}: —")
         if s.day_effect is not None:
             lines.append(f"- Day effect: {s.day_effect:+.1f} pts (95% CI {s.ci_low:+.1f}..{s.ci_high:+.1f}), MDE {s.mde:.1f}")
         if s.cusum_sigma is not None:

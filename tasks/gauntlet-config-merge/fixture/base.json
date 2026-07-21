@@ -1,0 +1,13 @@
+{
+  "service": {
+    "name": "checkout",
+    "port": 8080,
+    "tls": {
+      "enabled": true,
+      "cert": "/etc/ssl/checkout.pem"
+    }
+  },
+  "features": ["audit-log", "rate-limit"],
+  "log_level": "info",
+  "replicas": 2
+}

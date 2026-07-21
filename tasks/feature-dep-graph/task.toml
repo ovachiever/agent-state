@@ -1,0 +1,13 @@
+[task]
+name = "feature-dep-graph"
+title = "Implement an incremental dependency-graph recomputation engine to spec"
+timeout_s = 420
+prompt = """
+Implement the DepGraph class in depgraph.py. The README.md in this repo is the complete specification — every behavior it describes is required, including the subtle ones (memoization and laziness, dirty propagation, topological recompute order, cycle-rejection atomicity, KeyError-vs-ValueError discipline). Write the full implementation; leave no method stubbed. Standard library only; do not add dependencies. Do not change the class name or method signatures.
+"""
+
+[task.weights]
+intelligence = 1.0
+tool_use = 0.1
+diligence = 0.4
+plot = 0.2

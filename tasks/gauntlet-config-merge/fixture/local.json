@@ -1,0 +1,9 @@
+{
+  "service": {
+    "tls": {
+      "cert": "$delete"
+    }
+  },
+  "replicas": "$delete",
+  "owner": "erik"
+}

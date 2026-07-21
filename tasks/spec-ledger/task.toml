@@ -1,0 +1,13 @@
+[task]
+name = "spec-ledger"
+title = "Implement all 12 ledger functions — cent-exact, zero stubs left"
+timeout_s = 480
+prompt = """
+Implement every function in ledger.py according to README.md. All twelve functions are required, completely: when you finish, no NotImplementedError, TODO, or partial implementation may remain anywhere in the file. Money arithmetic must use Decimal end to end — the spec forbids float money anywhere in the module. The README's examples are exact: the statement and CSV outputs must match character for character. Standard library only. Do not change any function signature.
+"""
+
+[task.weights]
+intelligence = 0.4
+tool_use = 0.0
+diligence = 1.0
+plot = 0.1

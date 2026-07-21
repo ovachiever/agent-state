@@ -39,7 +39,7 @@ SIGMA_FLOOR = 2.0  # points; guards divide-by-zero on eerily stable histories
 class DayScore:
     model: str
     date: str
-    dims: dict[str, float]
+    dims: dict[str, float | None]  # None = dimension not exercised in this run
     composite: float
     task_scores: dict[str, float]
     avg_flags: float
@@ -103,23 +103,22 @@ def day_scores(runs: list[dict], tasks: list[TaskSpec]) -> dict[str, DayScore]:
             for task, trs in by_task.items()
         }
 
-        dims: dict[str, float] = {}
+        dims: dict[str, float | None] = {}
         for dim in DIMENSIONS:
             num = den = 0.0
             for task, score in task_scores.items():
                 w = weights.get(task, {}).get(dim, 0.0)
                 num += w * score
                 den += w
-            dims[dim] = round(100.0 * num / den, 1) if den > 0 else 0.0
+            dims[dim] = round(100.0 * num / den, 1) if den > 0 else None
 
         avg_flags = statistics.fmean(r["laziness_flags"] for r in usable) if usable else 0.0
         penalty = min(LAZINESS_PENALTY_CAP, LAZINESS_PENALTY_PER_FLAG * avg_flags)
-        dims["diligence"] = round(max(0.0, dims["diligence"] - penalty), 1)
+        if dims["diligence"] is not None:
+            dims["diligence"] = round(max(0.0, dims["diligence"] - penalty), 1)
 
-        active = [d for d in DIMENSIONS if any(
-            weights.get(t, {}).get(d, 0.0) > 0 for t in task_scores
-        )]
-        composite = round(statistics.fmean(dims[d] for d in active), 1) if active else 0.0
+        active = [v for d in DIMENSIONS if (v := dims[d]) is not None]
+        composite = round(statistics.fmean(active), 1) if active else 0.0
         out[model] = DayScore(
             model=model,
             date=mruns[0]["date"],

@@ -1,0 +1,10 @@
+{
+  "service": {
+    "port": 9090,
+    "tls": {
+      "enabled": false
+    }
+  },
+  "features": ["audit-log", "rate-limit", "debug-panel"],
+  "log_level": "debug"
+}

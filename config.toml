@@ -49,9 +49,9 @@ name = "fable-xhigh"
 runner = "claude"
 model = "claude-fable-5"
 extra_args = ["--effort", "xhigh"]
-# 1-trial screen (~$20/day when enabled): detection floor ~9-10 pts, under the
-# 15-pt materiality line. Escalation auto-buys extra trials on suspicious days.
-trials = 1
+# 2-trial screen (~$40/day): detection floor ~6 pts, well under the 15-pt
+# materiality line. Escalation auto-buys extra trials on suspicious days.
+trials = 2
 
 [[models]]
 name = "codex-sol-xhigh"

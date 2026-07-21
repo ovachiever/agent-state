@@ -1,4 +1,4 @@
-"""SQLite storage for run results."""
+"""SQLite storage for run results and batch fingerprints."""
 
 from __future__ import annotations
 
@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS runs (
     model TEXT NOT NULL,
     task TEXT NOT NULL,
     trial INTEGER NOT NULL,
-    status TEXT NOT NULL,           -- ok | error | timeout
-    score REAL NOT NULL,            -- 0..1 from verifier
+    status TEXT NOT NULL,           -- ok | error | timeout | infra
+    score REAL NOT NULL,
     duration_s REAL,
     turns INTEGER,
     input_tokens INTEGER,
@@ -32,6 +32,12 @@ CREATE TABLE IF NOT EXISTS runs (
     error TEXT DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_runs_date_model ON runs(date, model);
+CREATE TABLE IF NOT EXISTS batches (
+    batch_id TEXT PRIMARY KEY,
+    date TEXT NOT NULL,
+    ts TEXT NOT NULL,
+    fingerprint_json TEXT DEFAULT '{}'
+);
 """
 
 
@@ -51,11 +57,24 @@ def insert_run(conn: sqlite3.Connection, row: dict) -> None:
         conn.execute(f"INSERT INTO runs ({cols}) VALUES ({ph})", list(row.values()))
 
 
+def insert_batch(conn: sqlite3.Connection, batch_id: str, date: str, ts: str, fingerprint_json: str) -> None:
+    with conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO batches (batch_id, date, ts, fingerprint_json) VALUES (?,?,?,?)",
+            (batch_id, date, ts, fingerprint_json),
+        )
+
+
 def fetch_runs(conn: sqlite3.Connection, date: str | None = None) -> list[dict]:
     if date:
         cur = conn.execute("SELECT * FROM runs WHERE date = ? ORDER BY id", (date,))
     else:
         cur = conn.execute("SELECT * FROM runs ORDER BY id")
+    return [dict(r) for r in cur.fetchall()]
+
+
+def fetch_batches(conn: sqlite3.Connection) -> list[dict]:
+    cur = conn.execute("SELECT * FROM batches ORDER BY ts")
     return [dict(r) for r in cur.fetchall()]
 
 

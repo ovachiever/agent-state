@@ -4,10 +4,16 @@
 # That is deliberate: this measures the daily driver, not the raw API.
 
 [run]
-trials = 2            # runs per (model, task); more = better signal, more quota
-concurrency = 4       # parallel agent processes
-default_timeout_s = 420
+trials = 6            # runs per (model, task); the power budget
+concurrency = 8       # parallel agent processes
+default_timeout_s = 480
 keep_workspace_days = 7
+
+[stats]
+material_drop = 6.0   # composite points that actually matter to you; verdicts key off this
+baseline_window = 14  # trailing days for task-paired baselines
+min_baseline_days = 3 # days a task needs before it enters the paired comparison
+bootstrap_iters = 2000
 
 [binaries]
 # Absolute paths so launchd runs work without your interactive shell PATH.

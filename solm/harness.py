@@ -1,4 +1,13 @@
-"""Orchestration: fan out (model, task, trial) jobs, verify, score, persist."""
+"""Orchestration: fan out (model, task, trial) jobs, verify, score, persist.
+
+Multi-turn tasks: after turn 1 the workspace is snapshotted to
+.solm/snapshots/turn1/, then each followup resumes the same agent session.
+Verifiers may compare final state against the snapshot (cave-detection).
+
+Infra errors (transport/auth/rate-limit) are retried once with a fresh
+workspace; a repeat lands as status 'infra' and is excluded from scoring so a
+529 never reads as model stupidity.
+"""
 
 from __future__ import annotations
 
@@ -12,9 +21,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from solm import db, metrics
+from solm import db, fingerprint, metrics
 from solm.config import WORKSPACE_ROOT, Config, ModelSpec, TaskSpec
-from solm.runners import get_runner
+from solm.runners import RunResult, get_runner, merge_results
 
 _print_lock = threading.Lock()
 
@@ -37,17 +46,25 @@ def _prepare_workspace(task: TaskSpec, model: ModelSpec, trial: int, batch_id: s
     return ws
 
 
-def run_verifier(task: TaskSpec, workspace: Path) -> tuple[float, dict, str]:
-    """Execute the task's hidden verifier against a workspace.
+def _snapshot(ws: Path, name: str) -> None:
+    dest = ws / ".solm" / "snapshots" / name
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(
+        ws, dest,
+        ignore=shutil.ignore_patterns(".git", ".solm", "__pycache__"),
+    )
 
-    Returns (score 0..1, checks dict, error string).
-    """
+
+def run_verifier(task: TaskSpec, workspace: Path) -> tuple[float, dict, str]:
+    """Execute the task's hidden verifier. Returns (score 0..1, checks, error)."""
     try:
         proc = subprocess.run(
             [sys.executable, str(task.verify_script), str(workspace)],
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=180,
         )
     except subprocess.TimeoutExpired:
         return 0.0, {}, "verifier timeout"
@@ -61,25 +78,55 @@ def run_verifier(task: TaskSpec, workspace: Path) -> tuple[float, dict, str]:
         return 0.0, {}, f"verifier output unparseable: {out[-300:]} {proc.stderr[-300:]}"
 
 
-def _run_one(cfg: Config, model: ModelSpec, task: TaskSpec, trial: int, batch_id: str, date: str) -> dict:
-    ws = _prepare_workspace(task, model, trial, batch_id)
+def _run_agent(cfg: Config, model: ModelSpec, task: TaskSpec, ws: Path) -> tuple[RunResult, list[str]]:
+    """Run turn 1 plus any followups. Returns (merged result, followup messages)."""
     runner = get_runner(cfg, model)
+    timeout = task.timeout_s or cfg.default_timeout_s
+    first = runner.run(model, task.prompt, ws, timeout)
+    results = [first]
+    followup_messages: list[str] = []
+    if task.followups and first.status == "ok":
+        _snapshot(ws, "turn1")
+        for i, followup in enumerate(task.followups, start=2):
+            r = runner.resume(model, first.session_id, followup, ws, timeout,
+                              log_prefix=f"turn{i}")
+            results.append(r)
+            followup_messages.append(r.final_message)
+            if r.status != "ok":
+                break
+    return merge_results(results), followup_messages
+
+
+def _run_one(cfg: Config, model: ModelSpec, task: TaskSpec, trial: int, batch_id: str, date: str) -> dict:
     label = f"{model.name} / {task.name} / t{trial}"
     _say(f"  ▶ {label}")
-    result = runner.run(model, task.prompt, ws, task.timeout_s or cfg.default_timeout_s)
+
+    ws = _prepare_workspace(task, model, trial, batch_id)
+    result, followup_messages = _run_agent(cfg, model, task, ws)
+
+    if result.status == "infra":
+        _say(f"  ↻ {label}: infra error, retrying once ({result.error[:80]})")
+        ws = _prepare_workspace(task, model, trial, batch_id)
+        result, followup_messages = _run_agent(cfg, model, task, ws)
 
     score, checks, verr = 0.0, {}, ""
-    if result.status != "timeout":
+    if result.status not in ("timeout", "infra"):
         score, checks, verr = run_verifier(task, ws)
+
     changed = metrics.changed_files(task.fixture_dir, ws)
     flags, notes = metrics.laziness_scan(task.fixture_dir, ws, changed, result.final_message)
+    over_flags, over_notes = metrics.overclaim_flags(result.final_message, score)
+    flags += over_flags
+    notes.extend(over_notes)
+    if followup_messages:
+        caves = metrics.cave_phrase_count(followup_messages)
+        if caves:
+            notes.append(f"cave-phrases x{caves} in followup replies")
 
     error = result.error or verr
-    _say(
-        f"  ✔ {label}: score {score:.2f}"
-        + (f", {flags} laziness flags" if flags else "")
-        + (f" [{result.status}]" if result.status != "ok" else "")
-    )
+    tag = f" [{result.status}]" if result.status != "ok" else ""
+    _say(f"  ✔ {label}: score {score:.2f}"
+         + (f", {flags} flags" if flags else "") + tag)
     return {
         "batch_id": batch_id,
         "date": date,
@@ -119,6 +166,7 @@ def run_batch(
     models: list[ModelSpec],
     tasks: list[TaskSpec],
     trials: int,
+    trial_offset: int = 0,
 ) -> str:
     """Run the battery. Returns the batch date (YYYY-MM-DD)."""
     now = dt.datetime.now()
@@ -130,13 +178,16 @@ def run_batch(
         (model, task, trial)
         for model in models
         for task in tasks
-        for trial in range(1, trials + 1)
+        for trial in range(trial_offset + 1, trial_offset + trials + 1)
     ]
     _say(f"state-of-llm batch {batch_id}: {len(jobs)} runs "
          f"({len(models)} models x {len(tasks)} tasks x {trials} trials), "
          f"concurrency {cfg.concurrency}")
 
     conn = db.connect()
+    fp = fingerprint.collect(cfg, tasks)
+    db.insert_batch(conn, batch_id, date, now.isoformat(timespec="seconds"), json.dumps(fp))
+
     with ThreadPoolExecutor(max_workers=cfg.concurrency) as pool:
         futures = {
             pool.submit(_run_one, cfg, model, task, trial, batch_id, date): (model.name, task.name, trial)

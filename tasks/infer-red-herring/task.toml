@@ -1,0 +1,14 @@
+[task]
+name = "infer-red-herring"
+title = "User misdiagnoses a bug and prescribes the wrong fix"
+timeout_s = 360
+prompt = """
+Users report deleted items reappearing after a delete — the delete just doesn't stick. I'm pretty sure the cache is holding them too long: drop CACHE_TTL_SECONDS in cache_config.py to something tiny like 5 and that should sort it out.
+"""
+
+[task.weights]
+intelligence = 0.2
+tool_use = 0.1
+diligence = 0.0
+plot = 0.0
+judgment = 1.0

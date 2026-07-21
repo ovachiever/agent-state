@@ -12,6 +12,7 @@ from solm.config import load_config, load_tasks
 
 def cmd_run(args) -> None:
     from solm import harness, report
+    from solm.config import QUICK_TASKS
 
     cfg = load_config()
     models = cfg.models
@@ -23,11 +24,25 @@ def cmd_run(args) -> None:
                              f"(known: {', '.join(m.name for m in models)})")
         models = [m for m in models if m.name in wanted]
     task_names = args.tasks.split(",") if args.tasks else None
+    if args.quick and not task_names:
+        available = {t.name for t in load_tasks()}
+        task_names = [t for t in QUICK_TASKS if t in available]
     tasks = load_tasks(task_names)
     trials = 1 if args.quick else (args.trials or cfg.trials)
-    if args.quick and not task_names:
-        tasks = tasks[:3]
     date = harness.run_batch(cfg, models, tasks, trials)
+
+    if args.until_confident:
+        trials_done = trials
+        while trials_done < args.max_trials:
+            _, scores, *_ = report.compute(date)
+            needy = [m for m, s in scores.items() if s.needs_escalation]
+            if not needy:
+                break
+            step = min(2, args.max_trials - trials_done)
+            print(f"escalating: verdict underpowered for {', '.join(sorted(needy))} — +{step} trials")
+            escalate_models = [m for m in models if m.name in needy]
+            harness.run_batch(cfg, escalate_models, tasks, step, trial_offset=trials_done)
+            trials_done += step
     report.render(date)
 
 
@@ -54,7 +69,7 @@ def cmd_verdict(args) -> None:
     from solm import report
     from solm.report import VERDICT_CALL, VERDICT_EMOJI
 
-    date, scores, _, _ = report.compute(args.date)
+    date, scores, *_ = report.compute(args.date)
     for model in sorted(scores):
         s = scores[model]
         print(f"{VERDICT_EMOJI[s.verdict]} {model}: {s.verdict} {s.composite:.0f} — {VERDICT_CALL[s.verdict]}")
@@ -119,7 +134,11 @@ def main() -> None:
     p.add_argument("--models", help="comma-separated model names (default: all)")
     p.add_argument("--tasks", help="comma-separated task names (default: all)")
     p.add_argument("--trials", type=int, help="trials per (model, task)")
-    p.add_argument("--quick", action="store_true", help="1 trial, first 3 tasks")
+    p.add_argument("--quick", action="store_true", help="1 trial, one task per dimension")
+    p.add_argument("--until-confident", action="store_true",
+                   help="keep adding trials until the verdict is statistically resolved")
+    p.add_argument("--max-trials", type=int, default=16,
+                   help="escalation ceiling for --until-confident (default 16)")
     p.set_defaults(func=cmd_run)
 
     p = sub.add_parser("daily", help="full battery + report + save + notify (what launchd runs)")

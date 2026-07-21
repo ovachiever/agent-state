@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-import datetime as dt
+import json
+import statistics
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from solm import db
-from solm.config import DIMENSIONS, REPORTS_DIR, TaskSpec, load_tasks
-from solm.scoring import DayScore, score_day
+from solm import db, fingerprint
+from solm.config import DIMENSIONS, REPORTS_DIR, TaskSpec, load_config, load_tasks
+from solm.scoring import DayScore, day_scores, score_day
 
 VERDICT_STYLE = {"GREEN": "bold green", "YELLOW": "bold yellow", "RED": "bold red"}
 VERDICT_EMOJI = {"GREEN": "🟢", "YELLOW": "🟡", "RED": "🔴"}
@@ -21,8 +22,10 @@ DIM_LABEL = {
     "tool_use": "Tool use",
     "diligence": "Diligence",
     "plot": "Plot retention",
+    "judgment": "Judgment",
 }
 SPARK = "▁▂▃▄▅▆▇█"
+CEILING_MEAN = 0.95
 
 
 def sparkline(values: list[float], lo: float = 40.0, hi: float = 100.0) -> str:
@@ -35,42 +38,90 @@ def sparkline(values: list[float], lo: float = 40.0, hi: float = 100.0) -> str:
     return "".join(out)
 
 
-def compute(date: str | None = None) -> tuple[str, dict[str, DayScore], list[dict], list[TaskSpec]]:
+def compute(date: str | None = None):
     conn = db.connect()
     date = date or db.latest_date(conn)
     if not date:
         raise SystemExit("no runs recorded yet — run `solm run` first")
     day_runs = db.fetch_runs(conn, date)
     all_runs = db.fetch_runs(conn)
+    batches = db.fetch_batches(conn)
     conn.close()
     tasks = load_tasks()
-    return date, score_day(day_runs, all_runs, tasks), day_runs, tasks
+    stats = load_config().stats
+    return date, score_day(day_runs, all_runs, tasks, stats), day_runs, all_runs, tasks, batches
+
+
+def _fingerprint_warnings(batches: list[dict], date: str) -> list[str]:
+    """What changed about the yardstick between the previous batch and today's."""
+    fps = [(b["date"], json.loads(b["fingerprint_json"] or "{}")) for b in batches]
+    fps = [f for f in fps if f[1]]
+    todays = [f for f in fps if f[0] == date]
+    priors = [f for f in fps if f[0] < date]
+    if not todays or not priors:
+        return []
+    changes = fingerprint.diff(priors[-1][1], todays[-1][1])
+    if not changes:
+        return []
+    return [f"yardstick changed since {priors[-1][0]}: {', '.join(changes)}"]
+
+
+def _ceiling_warnings(all_runs: list[dict], tasks: list[TaskSpec], date: str) -> list[str]:
+    """Tasks everyone aces carry no information about degradation."""
+    warnings = []
+    for task in tasks:
+        scores = [r["score"] for r in all_runs
+                  if r["task"] == task.name and r["status"] != "infra" and r["date"] <= date]
+        if len(scores) >= 8 and statistics.fmean(scores) >= CEILING_MEAN:
+            warnings.append(
+                f"ceiling: {task.name} mean {statistics.fmean(scores):.2f} over {len(scores)} runs — "
+                "little signal, consider hardening"
+            )
+    return warnings
 
 
 def render(date: str | None = None, console: Console | None = None) -> None:
     console = console or Console()
-    date, scores, day_runs, tasks = compute(date)
+    date, scores, day_runs, all_runs, tasks, batches = compute(date)
 
     console.print()
-    console.print(f"[bold]STATE OF LLM[/bold] — {date}", justify="left")
+    console.print(f"[bold]STATE OF LLM[/bold] — {date}")
     for model in sorted(scores):
         s = scores[model]
         style = VERDICT_STYLE[s.verdict]
-        base = f"baseline {s.baseline}±{s.spread}" if s.baseline is not None else "no baseline yet"
         header = Text()
         header.append(f"{VERDICT_EMOJI[s.verdict]} {model}  ", style="bold")
         header.append(f"{s.verdict} {s.composite:.0f}", style=style)
-        header.append(f"  ({base})  ", style="dim")
-        header.append(VERDICT_CALL[s.verdict], style=style)
+        header.append(f"  {VERDICT_CALL[s.verdict]}", style=style)
+
         body = Text()
         for dim in DIMENSIONS:
             body.append(f"  {DIM_LABEL[dim]:<15} {s.dims[dim]:5.1f}\n")
-        trend = s.history + [s.composite]
-        body.append(f"  {'Trend':<15} {sparkline(trend)}  ", style="dim")
-        body.append(f"({s.reason})", style="dim")
+        if s.day_effect is not None:
+            body.append(
+                f"  {'Day effect':<15} {s.day_effect:+.1f} pts "
+                f"(95% CI {s.ci_low:+.1f}..{s.ci_high:+.1f}, {s.paired_tasks} tasks paired)\n"
+            )
+            body.append(f"  {'Sensitivity':<15} MDE ≈ {s.mde:.1f} pts at today's N\n")
+        else:
+            body.append(f"  {'Day effect':<15} n/a — baselines building\n", style="dim")
+        if s.cusum_sigma is not None:
+            drift = f"CUSUM {s.cusum_sigma:.1f}σ"
+            body.append(f"  {'Drift':<15} {drift}"
+                        + ("  ⚠ ALARM\n" if s.cusum_alarm else " (alarm at 4σ)\n"),
+                        style="bold red" if s.cusum_alarm else None)
+        if s.infra_count:
+            body.append(f"  {'Infra':<15} {s.infra_count} runs excluded (transport/auth)\n", style="yellow")
         if s.avg_flags:
-            body.append(f"\n  {'Laziness':<15} {s.avg_flags} flags/run avg", style="yellow")
+            body.append(f"  {'Behavior flags':<15} {s.avg_flags}/run avg\n", style="yellow")
+        trend = s.history + [s.composite]
+        body.append(f"  {'Trend':<15} {sparkline(trend)}\n", style="dim")
+        body.append(f"  {s.reason}", style="dim")
         console.print(Panel(body, title=header, title_align="left", expand=False))
+
+    warnings = _fingerprint_warnings(batches, date) + _ceiling_warnings(all_runs, tasks, date)
+    for w in warnings:
+        console.print(f"  [yellow]⚠ {w}[/yellow]")
 
     table = Table(title=f"Per-task scores (mean of trials) — {date}", show_lines=False)
     table.add_column("Task")
@@ -87,32 +138,38 @@ def render(date: str | None = None, console: Console | None = None) -> None:
 
     failures = [r for r in day_runs if r["status"] != "ok" or r["score"] < 0.5]
     if failures:
-        ft = Table(title="Weak runs (score < 0.5 or errored)")
+        ft = Table(title="Weak runs (score < 0.5 or non-ok)")
         for col in ("model", "task", "trial", "status", "score", "why / workspace"):
             ft.add_column(col)
         for r in failures:
             why = r["error"] or r["laziness_notes"] or ""
             ft.add_row(
                 r["model"], r["task"], str(r["trial"]), r["status"],
-                f"{r['score']:.2f}", (why[:60] + "\n" + r["workspace"]).strip(),
+                f"{r['score']:.2f}", (why[:70] + "\n" + r["workspace"]).strip(),
             )
         console.print(ft)
     console.print()
 
 
 def save_markdown(date: str | None = None) -> str:
-    date, scores, day_runs, tasks = compute(date)
+    date, scores, day_runs, all_runs, tasks, batches = compute(date)
     lines = [f"# State of LLM — {date}", ""]
     for model in sorted(scores):
         s = scores[model]
-        base = f"baseline {s.baseline}±{s.spread}" if s.baseline is not None else "no baseline yet"
-        lines.append(f"## {VERDICT_EMOJI[s.verdict]} {model}: {s.verdict} {s.composite:.0f} ({base}) — {VERDICT_CALL[s.verdict]}")
+        lines.append(f"## {VERDICT_EMOJI[s.verdict]} {model}: {s.verdict} {s.composite:.0f} — {VERDICT_CALL[s.verdict]}")
         lines.append("")
         for dim in DIMENSIONS:
             lines.append(f"- {DIM_LABEL[dim]}: {s.dims[dim]:.1f}")
-        lines.append(f"- Laziness flags/run: {s.avg_flags}")
+        if s.day_effect is not None:
+            lines.append(f"- Day effect: {s.day_effect:+.1f} pts (95% CI {s.ci_low:+.1f}..{s.ci_high:+.1f}), MDE {s.mde:.1f}")
+        if s.cusum_sigma is not None:
+            lines.append(f"- Drift: CUSUM {s.cusum_sigma:.1f}σ{' ⚠ ALARM' if s.cusum_alarm else ''}")
+        lines.append(f"- Behavior flags/run: {s.avg_flags}; infra excluded: {s.infra_count}")
         lines.append(f"- Verdict basis: {s.reason}")
         lines.append("")
+    for w in _fingerprint_warnings(batches, date) + _ceiling_warnings(all_runs, tasks, date):
+        lines.append(f"> ⚠ {w}")
+    lines.append("")
     lines.append("## Per-task")
     lines.append("")
     models = sorted(scores)
@@ -131,7 +188,7 @@ def save_markdown(date: str | None = None) -> str:
         lines.append("")
         for r in failures:
             why = r["error"] or r["laziness_notes"] or "low score"
-            lines.append(f"- {r['model']} / {r['task']} t{r['trial']}: {r['score']:.2f} ({r['status']}) — {why[:120]}")
+            lines.append(f"- {r['model']} / {r['task']} t{r['trial']}: {r['score']:.2f} ({r['status']}) — {why[:140]}")
             lines.append(f"  - workspace: `{r['workspace']}`")
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     path = REPORTS_DIR / f"{date}.md"
@@ -144,7 +201,7 @@ def notify(date: str | None = None) -> None:
     import subprocess
 
     try:
-        date, scores, _, _ = compute(date)
+        date, scores, *_ = compute(date)
     except SystemExit:
         return
     parts = [f"{VERDICT_EMOJI[s.verdict]} {m} {s.composite:.0f}" for m, s in sorted(scores.items())]
@@ -174,12 +231,11 @@ def history_table(days: int = 30, console: Console | None = None) -> None:
     table.add_column("date")
     for m in models:
         table.add_column(m, justify="right")
-    from solm.scoring import day_scores as _ds
 
     per_date: dict[str, dict[str, float]] = {}
     for date in dates:
         runs = [r for r in all_runs if r["date"] == date]
-        scores = _ds(runs, tasks)
+        scores = day_scores(runs, tasks)
         per_date[date] = {m: s.composite for m, s in scores.items()}
     for date in dates:
         row = [date] + [

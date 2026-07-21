@@ -25,12 +25,35 @@ codex = "/Users/erik/.nvm/versions/node/v22.16.0/bin/codex"
 # tasks only need to write their own workspace, so default is safer.
 sandbox = "workspace-write"
 
+# Effort is pinned per model spec so the yardstick can't drift with settings
+# edits: claude via --effort, codex via -c model_reasoning_effort.
+
 [[models]]
 name = "fable-xhigh"
 runner = "claude"
-model = "claude-fable-5"   # effort comes from ~/.claude/settings.json (your wrapper pins xhigh)
+model = "claude-fable-5"
+extra_args = ["--effort", "xhigh"]
+
+[[models]]
+name = "opus-xhigh"
+runner = "claude"
+model = "claude-opus-4-8"
+extra_args = ["--effort", "xhigh"]
+
+[[models]]
+name = "sonnet-xhigh"
+runner = "claude"
+model = "claude-sonnet-5"
+extra_args = ["--effort", "xhigh"]
 
 [[models]]
 name = "codex-sol-xhigh"
 runner = "codex"
-model = ""                 # empty = use ~/.codex/config.toml default (gpt-5.6-sol @ xhigh)
+model = "gpt-5.6-sol"
+extra_args = ["-c", 'model_reasoning_effort="xhigh"']
+
+[[models]]
+name = "codex-terra-xhigh"
+runner = "codex"
+model = "gpt-5.6-terra"
+extra_args = ["-c", 'model_reasoning_effort="xhigh"']

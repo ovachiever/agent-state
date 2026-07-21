@@ -95,6 +95,7 @@ class Config:
     claude_bin: str
     codex_bin: str
     codex_sandbox: str
+    codex_home: str
     claude_strip_api_key: bool
     stats: StatsConfig
 
@@ -144,6 +145,7 @@ def load_config(path: Path | None = None) -> Config:
         claude_bin=_resolve_bin("claude", bins.get("claude", "")),
         codex_bin=_resolve_bin("codex", bins.get("codex", "")),
         codex_sandbox=raw.get("codex", {}).get("sandbox", "workspace-write"),
+        codex_home=raw.get("codex", {}).get("home", ""),
         claude_strip_api_key=bool(raw.get("claude", {}).get("strip_api_key", True)),
         stats=StatsConfig(
             material_drop=float(stats_raw.get("material_drop", 6.0)),

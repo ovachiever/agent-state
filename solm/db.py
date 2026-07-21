@@ -38,6 +38,11 @@ CREATE TABLE IF NOT EXISTS batches (
     ts TEXT NOT NULL,
     fingerprint_json TEXT DEFAULT '{}'
 );
+CREATE TABLE IF NOT EXISTS gut_log (
+    date TEXT PRIMARY KEY,
+    label TEXT NOT NULL,            -- fine | off
+    ts TEXT NOT NULL
+);
 """
 
 
@@ -87,3 +92,16 @@ def latest_date(conn: sqlite3.Connection) -> str | None:
     cur = conn.execute("SELECT MAX(date) AS d FROM runs")
     row = cur.fetchone()
     return row["d"] if row and row["d"] else None
+
+
+def set_gut(conn: sqlite3.Connection, date: str, label: str, ts: str) -> None:
+    with conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO gut_log (date, label, ts) VALUES (?,?,?)",
+            (date, label, ts),
+        )
+
+
+def fetch_gut(conn: sqlite3.Connection) -> dict[str, str]:
+    cur = conn.execute("SELECT date, label FROM gut_log ORDER BY date")
+    return {r["date"]: r["label"] for r in cur.fetchall()}

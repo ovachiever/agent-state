@@ -28,6 +28,9 @@ codex = "/Users/erik/.nvm/versions/node/v22.16.0/bin/codex"
 # Eval sandbox for codex runs. Your daily config is danger-full-access; eval
 # tasks only need to write their own workspace, so default is safer.
 sandbox = "workspace-write"
+# Isolated CODEX_HOME: API-key billing + clean config for eval runs, leaving
+# your interactive codex (~/.codex, ChatGPT plan, hooks, priority tier) alone.
+home = "/Users/erik/.codex-solm"
 
 [claude]
 # Billing switch. false = eval runs bill the API via your exported
@@ -46,16 +49,17 @@ name = "fable-xhigh"
 runner = "claude"
 model = "claude-fable-5"
 extra_args = ["--effort", "xhigh"]
-# 1-trial screen (~$20/day): detection floor ~9-10 pts, comfortably under the
+# 1-trial screen (~$20/day when enabled): detection floor ~9-10 pts, under the
 # 15-pt materiality line. Escalation auto-buys extra trials on suspicious days.
 trials = 1
+enabled = false   # paused during the blinded burn-in; flip to true after
 
 [[models]]
 name = "codex-sol-xhigh"
 runner = "codex"
 model = "gpt-5.6-sol"
 extra_args = ["-c", 'model_reasoning_effort="xhigh"']
-# no trials override: ChatGPT-plan quota, $0 marginal, keep full 6
+trials = 2   # lean burn-in screen; API-billed via the isolated CODEX_HOME
 
 [[models]]
 name = "opus-xhigh"

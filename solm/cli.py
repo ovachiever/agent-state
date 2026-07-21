@@ -89,6 +89,76 @@ def cmd_history(args) -> None:
     report.history_table(args.days)
 
 
+def cmd_gut(args) -> None:
+    import datetime as dt
+
+    from solm import db
+
+    date = args.date or dt.date.today().isoformat()
+    conn = db.connect()
+    db.set_gut(conn, date, args.label, dt.datetime.now().isoformat(timespec="seconds"))
+    conn.close()
+    print(f"gut logged: {date} = {args.label}")
+
+
+def cmd_burnin(args) -> None:
+    from solm import db
+    from solm.scoring import score_day
+
+    conn = db.connect()
+    gut = db.fetch_gut(conn)
+    all_runs = db.fetch_runs(conn)
+    conn.close()
+    if not gut:
+        raise SystemExit("no gut labels yet — log one with: solm gut fine|off")
+
+    tasks = load_tasks()
+    stats = load_config().stats
+    agree = disagree = 0
+    print(f"{'date':<12} {'gut':<6} {'verdict':<8} match")
+    for date in sorted(gut):
+        day = [r for r in all_runs if r["date"] == date]
+        if not day:
+            print(f"{date:<12} {gut[date]:<6} {'—':<8} (no runs that day)")
+            continue
+        scored = score_day(day, all_runs, tasks, stats)
+        worst = max((s.verdict for s in scored.values()),
+                    key=lambda v: ["GREEN", "YELLOW", "RED"].index(v))
+        machine_off = worst != "GREEN"
+        gut_off = gut[date] == "off"
+        match = machine_off == gut_off
+        agree += match
+        disagree += not match
+        print(f"{date:<12} {gut[date]:<6} {worst:<8} {'✔' if match else '✖'}")
+    total = agree + disagree
+    if total:
+        print(f"\nagreement: {agree}/{total} ({100*agree/total:.0f}%) — "
+              f"{'instrument tracking your gut' if agree/total >= 0.7 else 'not yet trustworthy'}")
+
+
+def cmd_costs(args) -> None:
+    from solm import db
+
+    conn = db.connect()
+    cur = conn.execute("""
+        SELECT date, model, count(*) runs, round(sum(cost_usd), 2) usd,
+               sum(input_tokens) in_tok, sum(output_tokens) out_tok
+        FROM runs GROUP BY date, model ORDER BY date DESC, model LIMIT ?
+    """, (args.days * 4,))
+    rows = cur.fetchall()
+    conn.close()
+    print(f"{'date':<12} {'model':<18} {'runs':>5} {'usd':>8} {'in-tok':>10} {'out-tok':>9}")
+    total = 0.0
+    for r in rows:
+        usd = r["usd"] if r["usd"] is not None else 0.0
+        total += usd
+        print(f"{r['date']:<12} {r['model']:<18} {r['runs']:>5} "
+              f"{('$' + format(usd, '.2f')) if r['usd'] is not None else 'tokens':>8} "
+              f"{r['in_tok'] or 0:>10} {r['out_tok'] or 0:>9}")
+    print(f"\ntotal recorded API spend: ${total:.2f} "
+          f"(codex rows show tokens; dollars appear once codex runs via API report usage)")
+
+
 def cmd_tasks(args) -> None:
     for t in load_tasks():
         dims = ", ".join(f"{d}={w}" for d, w in t.weights.items() if w > 0)
@@ -167,6 +237,18 @@ def main() -> None:
 
     p = sub.add_parser("tasks", help="list the battery")
     p.set_defaults(func=cmd_tasks)
+
+    p = sub.add_parser("gut", help="log your blinded felt-sense for the day (before looking!)")
+    p.add_argument("label", choices=["fine", "off"])
+    p.add_argument("--date", help="YYYY-MM-DD (default today)")
+    p.set_defaults(func=cmd_gut)
+
+    p = sub.add_parser("burnin", help="gut-vs-verdict agreement table")
+    p.set_defaults(func=cmd_burnin)
+
+    p = sub.add_parser("costs", help="recorded spend and tokens per day/model")
+    p.add_argument("--days", type=int, default=14)
+    p.set_defaults(func=cmd_costs)
 
     p = sub.add_parser("selftest", help="verify every task's verifier against its reference solution")
     p.add_argument("--tasks")

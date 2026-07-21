@@ -52,7 +52,6 @@ extra_args = ["--effort", "xhigh"]
 # 1-trial screen (~$20/day when enabled): detection floor ~9-10 pts, under the
 # 15-pt materiality line. Escalation auto-buys extra trials on suspicious days.
 trials = 1
-enabled = false   # paused during the blinded burn-in; flip to true after
 
 [[models]]
 name = "codex-sol-xhigh"

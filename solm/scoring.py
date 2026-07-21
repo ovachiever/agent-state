@@ -297,9 +297,11 @@ def apply_verdict(score: DayScore, stats: StatsConfig) -> None:
         score.verdict = GREEN
         score.reason = f"within noise of baseline ({e:+.1f} pts, CI {lo:+.1f}..{hi:+.1f})"
 
+    # Deliberately NO escalation on "GREEN but underpowered": buying precision
+    # to confirm good news is wasted spend. Escalation exists for suspicion only
+    # (the ambiguous-drop branch above).
     if score.mde is not None and score.mde > material and score.verdict == GREEN:
-        score.reason += f"; note MDE {score.mde:.1f} > material {material:.0f} — add trials to tighten"
-        score.needs_escalation = True
+        score.reason += f" (MDE {score.mde:.1f} at today's N)"
 
     usable = score.run_count - score.infra_count
     if score.infra_count > usable and score.verdict != RED:

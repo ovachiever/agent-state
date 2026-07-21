@@ -10,7 +10,11 @@ default_timeout_s = 480
 keep_workspace_days = 7
 
 [stats]
-material_drop = 6.0   # composite points that actually matter to you; verdicts key off this
+# Composite points that actually matter: ~20% degradation (~15 pts) is the
+# touch-grass line. Smaller sustained decay still surfaces via the CUSUM
+# drift alarm (free, multi-day, wobble-proof); one-day flux under this line
+# stays advisory YELLOW at most.
+material_drop = 15.0
 baseline_window = 14  # trailing days for task-paired baselines
 min_baseline_days = 3 # days a task needs before it enters the paired comparison
 bootstrap_iters = 2000
@@ -42,7 +46,7 @@ name = "fable-xhigh"
 runner = "claude"
 model = "claude-fable-5"
 extra_args = ["--effort", "xhigh"]
-trials = 4    # API dollars: ~$80/day base (escalation adds only on ambiguous days)
+trials = 2    # API dollars: ~$40/day base; escalation spends more only on suspicious days
 
 [[models]]
 name = "codex-sol-xhigh"

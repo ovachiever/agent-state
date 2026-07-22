@@ -143,11 +143,19 @@ def cmd_gut(args) -> None:
 
     from agent_state import db
 
+    model = "all"
+    if args.model:
+        names = [m.name for m in load_config().all_models]
+        matches = [n for n in names if n == args.model or n.startswith(args.model)]
+        if len(matches) != 1:
+            raise SystemExit(f"--model '{args.model}' matches {matches or 'nothing'} "
+                             f"(known: {', '.join(names)})")
+        model = matches[0]
     date = args.date or dt.date.today().isoformat()
     conn = db.connect()
-    db.set_gut(conn, date, args.label, dt.datetime.now().isoformat(timespec="seconds"))
+    db.set_gut(conn, date, args.label, dt.datetime.now().isoformat(timespec="seconds"), model)
     conn.close()
-    print(f"gut logged: {date} = {args.label}")
+    print(f"gut logged: {date} [{model}] = {args.label}")
 
 
 def cmd_burnin(args) -> None:
@@ -163,15 +171,16 @@ def cmd_burnin(args) -> None:
 
     burnin = load_config().burnin
     today = dt.date.today().isoformat()
+    gut_dates = sorted({d for d, _ in gut})
     if burnin.active(today) and not args.unseal:
         run_dates = sorted({r["date"] for r in all_runs if r["date"] >= burnin.start})
-        gut_dates = sorted(d for d in gut if d >= burnin.start)
+        labeled = [d for d in gut_dates if d >= burnin.start]
         print(f"🔒 blinded burn-in in progress — {burnin.days_left(today)} day(s) left")
-        print(f"   battery days recorded: {len(run_dates)}; gut labels logged: {len(gut_dates)}")
-        missing = [d for d in run_dates if d not in gut]
+        print(f"   battery days recorded: {len(run_dates)}; gut-labeled days: {len(labeled)}")
+        missing = [d for d in run_dates if d not in gut_dates]
         if missing:
             print(f"   days missing a gut label: {', '.join(missing)} "
-                  f"(backfill: agent-state gut fine|off --date YYYY-MM-DD)")
+                  f"(backfill: agent-state gut fine|off --date YYYY-MM-DD [--model NAME])")
         print("   comparison unlocks when the window ends (--unseal to break the blind).")
         return
     if not gut:
@@ -180,21 +189,26 @@ def cmd_burnin(args) -> None:
     tasks = load_tasks()
     stats = load_config().stats
     agree = disagree = 0
-    print(f"{'date':<12} {'gut':<6} {'verdict':<8} match")
-    for date in sorted(gut):
+    print(f"{'date':<12} {'model':<18} {'gut':<6} {'verdict':<8} match")
+    for date in gut_dates:
         day = [r for r in all_runs if r["date"] == date]
         if not day:
-            print(f"{date:<12} {gut[date]:<6} {'—':<8} (no runs that day)")
+            label = gut.get((date, "all"), "?")
+            print(f"{date:<12} {'—':<18} {label:<6} {'—':<8} (no runs that day)")
             continue
         scored = score_day(day, all_runs, tasks, stats)
-        worst = max((s.verdict for s in scored.values()),
-                    key=lambda v: ["GREEN", "YELLOW", "RED"].index(v))
-        machine_off = worst != "GREEN"
-        gut_off = gut[date] == "off"
-        match = machine_off == gut_off
-        agree += match
-        disagree += not match
-        print(f"{date:<12} {gut[date]:<6} {worst:<8} {'✔' if match else '✖'}")
+        # Per-arm comparison: a model-specific label wins; 'all' covers the rest;
+        # an arm with no applicable label is skipped, not guessed.
+        for model in sorted(scored):
+            label = gut.get((date, model)) or gut.get((date, "all"))
+            if label is None:
+                continue
+            machine_off = scored[model].verdict != "GREEN"
+            match = machine_off == (label == "off")
+            agree += match
+            disagree += not match
+            print(f"{date:<12} {model:<18} {label:<6} {scored[model].verdict:<8} "
+                  f"{'✔' if match else '✖'}")
     total = agree + disagree
     if total:
         print(f"\nagreement: {agree}/{total} ({100*agree/total:.0f}%) — "
@@ -343,6 +357,7 @@ def main() -> None:
     p = sub.add_parser("gut", help="log your blinded felt-sense for the day (before looking!)")
     p.add_argument("label", choices=["fine", "off"])
     p.add_argument("--date", help="YYYY-MM-DD (default today)")
+    p.add_argument("--model", help="scope the label to one model (prefix ok); default: whole day")
     p.set_defaults(func=cmd_gut)
 
     p = sub.add_parser("burnin", help="gut-vs-verdict agreement (progress view while blind)")

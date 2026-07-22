@@ -39,9 +39,11 @@ CREATE TABLE IF NOT EXISTS batches (
     fingerprint_json TEXT DEFAULT '{}'
 );
 CREATE TABLE IF NOT EXISTS gut_log (
-    date TEXT PRIMARY KEY,
-    label TEXT NOT NULL,            -- fine | off
-    ts TEXT NOT NULL
+    date TEXT NOT NULL,
+    model TEXT NOT NULL DEFAULT 'all',  -- model name, or 'all' for a whole-day call
+    label TEXT NOT NULL,                -- fine | off
+    ts TEXT NOT NULL,
+    PRIMARY KEY (date, model)
 );
 CREATE TABLE IF NOT EXISTS anchor_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,14 +111,15 @@ def latest_date(conn: sqlite3.Connection) -> str | None:
     return row["d"] if row and row["d"] else None
 
 
-def set_gut(conn: sqlite3.Connection, date: str, label: str, ts: str) -> None:
+def set_gut(conn: sqlite3.Connection, date: str, label: str, ts: str, model: str = "all") -> None:
     with conn:
         conn.execute(
-            "INSERT OR REPLACE INTO gut_log (date, label, ts) VALUES (?,?,?)",
-            (date, label, ts),
+            "INSERT OR REPLACE INTO gut_log (date, model, label, ts) VALUES (?,?,?,?)",
+            (date, model, label, ts),
         )
 
 
-def fetch_gut(conn: sqlite3.Connection) -> dict[str, str]:
-    cur = conn.execute("SELECT date, label FROM gut_log ORDER BY date")
-    return {r["date"]: r["label"] for r in cur.fetchall()}
+def fetch_gut(conn: sqlite3.Connection) -> dict[tuple[str, str], str]:
+    """(date, model) -> label. Model 'all' covers arms without a specific label."""
+    cur = conn.execute("SELECT date, model, label FROM gut_log ORDER BY date")
+    return {(r["date"], r["model"]): r["label"] for r in cur.fetchall()}

@@ -98,7 +98,7 @@ anchor never moves. That's the whole idea.
   bootstrap) to produce a 95% confidence interval on today's change, and the
   report prints the minimum detectable effect: the smallest drop today's
   sample size could even have seen. A quiet day tells you what it could not
-  have noticed. That honesty is load-bearing.
+  have noticed. 
 - **The slow-decay alarm.** A CUSUM detector (a running tally of small daily
   deficits) catches gradual decline that no single day would flag. Built the
   naive way, it false-alarmed 15% of the time in simulation because
@@ -116,7 +116,7 @@ anchor never moves. That's the whole idea.
 
 ## The blind trial
 
-Worth naming plainly: your felt sense is the gold standard here, not the
+Ultimately, your felt sense is the gold standard here, not the
 machine. The machine's only job is to predict it early. So for the first two
 weeks, verdicts are sealed. Notifications say "battery complete" and nothing
 else. `agent-state verdict` prints a 🔒. You log one word a day, `agent-state gut fine` or
@@ -165,7 +165,9 @@ estimated from `[pricing]` with cache-discount ranges. Ballpark at 2 trials x
 18 tasks x 2 models plus nightly anchors: $80-135 a night on API billing.
 Size `trials`, the battery, and `[anchor] daily` to your budget. The
 `strip_api_key` switch trades API dollars for plan quota; know which one
-you're spending.
+you're spending. If this proofs out, the cost savings are enormous for 
+heavy coders on frontier models. Only spend tokens on the green days, 
+rather than wasting $$$ on red days and then fixing those mistakes on green days.
 
 ## Adding a task
 

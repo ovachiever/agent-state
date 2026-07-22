@@ -103,6 +103,17 @@ def _exec(cmd: list[str], cwd: Path, timeout: int, log_prefix: str,
     return stdout or "", stderr or "", rc, duration, timed_out
 
 
+def _path_env(binary: str) -> dict:
+    """Prepend the binary's own dir to PATH.
+
+    launchd children get a bare PATH (/usr/bin:/bin); node-shebang CLIs like
+    codex die with exit 127 without their nvm bin dir. Self-contained beats
+    hoping the parent environment is right.
+    """
+    bin_dir = str(Path(binary).resolve().parent)
+    return {"PATH": f"{bin_dir}:{os.environ.get('PATH', '')}"}
+
+
 class ClaudeRunner:
     def __init__(self, cfg: Config):
         self.bin = cfg.claude_bin
@@ -110,6 +121,7 @@ class ClaudeRunner:
         # bills the API (~$1+/run at xhigh) instead of the Max plan. Stripping
         # it makes runs use the claude.ai login. config.toml [claude] strip_api_key.
         self.env_strip = ("ANTHROPIC_API_KEY",) if cfg.claude_strip_api_key else ()
+        self.extra_env = _path_env(self.bin)
 
     def _base_cmd(self, spec: ModelSpec) -> list[str]:
         cmd = [
@@ -136,7 +148,8 @@ class ClaudeRunner:
 
     def _finish(self, cmd: list[str], workspace: Path, timeout: int, log_prefix: str) -> RunResult:
         stdout, stderr, rc, duration, timed_out = _exec(
-            cmd, workspace, timeout, log_prefix, extra_strip=self.env_strip
+            cmd, workspace, timeout, log_prefix,
+            extra_strip=self.env_strip, extra_env=self.extra_env,
         )
         if timed_out:
             return RunResult(status="timeout", duration_s=duration, error=f"timeout after {timeout}s")
@@ -184,7 +197,9 @@ class CodexRunner:
         self.bin = cfg.codex_bin
         self.sandbox = cfg.codex_sandbox
         # Isolated home = API-key auth + eval-only config; interactive ~/.codex untouched.
-        self.extra_env = {"CODEX_HOME": cfg.codex_home} if cfg.codex_home else None
+        self.extra_env = _path_env(self.bin)
+        if cfg.codex_home:
+            self.extra_env["CODEX_HOME"] = cfg.codex_home
 
     def _flags(self, spec: ModelSpec, workspace: Path, log_prefix: str) -> list[str]:
         last_msg = workspace / ".solm" / f"{log_prefix}.last_message.txt"

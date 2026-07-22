@@ -20,7 +20,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from solm.config import Config, ModelSpec
+from agent_state.config import Config, ModelSpec
 
 
 @dataclass

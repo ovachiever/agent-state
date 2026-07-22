@@ -57,8 +57,8 @@ codex = ""
 sandbox = "workspace-write"
 # Optional isolated CODEX_HOME: separate auth (e.g. API-key billing) and a
 # clean config for eval runs, leaving your interactive ~/.codex untouched.
-# Set up once:  mkdir -p ~/.codex-solm && printenv OPENAI_API_KEY | \
-#   CODEX_HOME=~/.codex-solm codex login --with-api-key
+# Set up once:  mkdir -p ~/.codex-agent-state && printenv OPENAI_API_KEY | \
+#   CODEX_HOME=~/.codex-agent-state codex login --with-api-key
 home = ""
 
 [claude]

@@ -1,4 +1,4 @@
-"""solm: state-of-llm CLI."""
+"""agent-state CLI."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ import shutil
 import sys
 from pathlib import Path
 
-from solm.config import load_config, load_tasks
+from agent_state.config import load_config, load_tasks
 
 
 def cmd_run(args) -> None:
-    from solm import harness, report
-    from solm.config import QUICK_TASKS
+    from agent_state import harness, report
+    from agent_state.config import QUICK_TASKS
 
     cfg = load_config()
     models = cfg.models
@@ -37,7 +37,7 @@ def cmd_run(args) -> None:
 
 
 def _escalate_until_confident(cfg, models, tasks, date, base_trials, max_trials) -> None:
-    from solm import harness, report
+    from agent_state import harness, report
 
     trials_done = base_trials
     while trials_done < max_trials:
@@ -56,7 +56,7 @@ def cmd_daily(args) -> None:
     import datetime as dt
     import subprocess
 
-    from solm import harness, report
+    from agent_state import harness, report
 
     cfg = load_config()
     today = dt.date.today().isoformat()
@@ -65,12 +65,12 @@ def cmd_daily(args) -> None:
         subprocess.run(
             ["osascript", "-e",
              'display notification "Auto-runs expired after the bake-in window. '
-             'Renew: bump [schedule] auto_until + solm schedule install. '
+             'Renew: bump [schedule] auto_until + agent-state schedule install. '
              'Retire: nothing to do — the schedule removed itself." '
              'with title "State of LLM: kill-switch fired 🛑"'],
             capture_output=True,
         )
-        from solm import schedule
+        from agent_state import schedule
 
         schedule.remove()
         print(f"kill-switch: auto_until {cfg.auto_until} passed; schedule uninstalled, no battery run")
@@ -80,7 +80,7 @@ def cmd_daily(args) -> None:
     date = harness.run_batch(cfg, cfg.models, tasks, cfg.trials)
     _escalate_until_confident(cfg, cfg.models, tasks, date, cfg.trials, max_trials=12)
     if cfg.anchor_daily:
-        from solm import anchor
+        from agent_state import anchor
 
         for set_name in cfg.anchor_sets:
             try:
@@ -105,13 +105,13 @@ def _blind_gate(unseal: bool) -> bool:
     if burnin.active(today) and not unseal:
         left = burnin.days_left(today)
         print(f"🔒 sealed: blinded burn-in, {left} day(s) left. "
-              f"Log your gut first (solm gut fine|off). Use --unseal to break the blind on purpose.")
+              f"Log your gut first (agent-state gut fine|off). Use --unseal to break the blind on purpose.")
         return True
     return False
 
 
 def cmd_report(args) -> None:
-    from solm import report
+    from agent_state import report
 
     if _blind_gate(args.unseal):
         return
@@ -121,8 +121,8 @@ def cmd_report(args) -> None:
 
 
 def cmd_verdict(args) -> None:
-    from solm import report
-    from solm.report import VERDICT_CALL, VERDICT_EMOJI
+    from agent_state import report
+    from agent_state.report import VERDICT_CALL, VERDICT_EMOJI
 
     if _blind_gate(args.unseal):
         return
@@ -133,7 +133,7 @@ def cmd_verdict(args) -> None:
 
 
 def cmd_history(args) -> None:
-    from solm import report
+    from agent_state import report
 
     report.history_table(args.days)
 
@@ -141,7 +141,7 @@ def cmd_history(args) -> None:
 def cmd_gut(args) -> None:
     import datetime as dt
 
-    from solm import db
+    from agent_state import db
 
     date = args.date or dt.date.today().isoformat()
     conn = db.connect()
@@ -153,8 +153,8 @@ def cmd_gut(args) -> None:
 def cmd_burnin(args) -> None:
     import datetime as dt
 
-    from solm import db
-    from solm.scoring import score_day
+    from agent_state import db
+    from agent_state.scoring import score_day
 
     conn = db.connect()
     gut = db.fetch_gut(conn)
@@ -171,11 +171,11 @@ def cmd_burnin(args) -> None:
         missing = [d for d in run_dates if d not in gut]
         if missing:
             print(f"   days missing a gut label: {', '.join(missing)} "
-                  f"(backfill: solm gut fine|off --date YYYY-MM-DD)")
+                  f"(backfill: agent-state gut fine|off --date YYYY-MM-DD)")
         print("   comparison unlocks when the window ends (--unseal to break the blind).")
         return
     if not gut:
-        raise SystemExit("no gut labels yet — log one with: solm gut fine|off")
+        raise SystemExit("no gut labels yet — log one with: agent-state gut fine|off")
 
     tasks = load_tasks()
     stats = load_config().stats
@@ -202,7 +202,7 @@ def cmd_burnin(args) -> None:
 
 
 def cmd_costs(args) -> None:
-    from solm import db
+    from agent_state import db
 
     conn = db.connect()
     cur = conn.execute("""
@@ -252,7 +252,7 @@ def cmd_tasks(args) -> None:
 
 
 def cmd_selftest(args) -> None:
-    from solm.selftest import run_selftest
+    from agent_state.selftest import run_selftest
 
     ok = run_selftest(args.tasks.split(",") if args.tasks else None)
     sys.exit(0 if ok else 1)
@@ -269,14 +269,14 @@ def cmd_doctor(args) -> None:
     tasks = load_tasks()
     print(f"✔ tasks: {len(tasks)} ({', '.join(t.name for t in tasks)})")
     print(f"✔ models: {', '.join(m.name for m in cfg.models)}")
-    from solm.db import DB_PATH
+    from agent_state.db import DB_PATH
 
     print(f"{'✔' if DB_PATH.exists() else '·'} db: {DB_PATH}{'' if DB_PATH.exists() else ' (created on first run)'}")
     sys.exit(0 if ok else 1)
 
 
 def cmd_anchor(args) -> None:
-    from solm import anchor
+    from agent_state import anchor
 
     cfg = load_config()
     if args.action == "establish":
@@ -290,7 +290,7 @@ def cmd_anchor(args) -> None:
 
 
 def cmd_schedule(args) -> None:
-    from solm import schedule
+    from agent_state import schedule
 
     if args.action == "install":
         hh, mm = (args.at or "05:45").split(":")
@@ -303,7 +303,7 @@ def cmd_schedule(args) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="solm",
+        prog="agent-state",
         description="Daily vitals for the coding models you actually use.",
     )
     sub = parser.add_subparsers(dest="command", required=True)

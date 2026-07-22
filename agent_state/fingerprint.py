@@ -14,7 +14,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from solm.config import Config, TaskSpec
+from agent_state.config import Config, TaskSpec
 
 
 def _sha(text: str) -> str:

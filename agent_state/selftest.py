@@ -11,8 +11,8 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from solm.config import load_tasks
-from solm.harness import run_verifier
+from agent_state.config import load_tasks
+from agent_state.harness import run_verifier
 
 
 def _overlay(src: Path, dst: Path) -> None:
@@ -29,7 +29,7 @@ def run_selftest(names: list[str] | None = None) -> bool:
     tasks = load_tasks(names)
     all_ok = True
     for task in tasks:
-        with tempfile.TemporaryDirectory(prefix=f"solm-selftest-{task.name}-") as tmp:
+        with tempfile.TemporaryDirectory(prefix=f"agent-state-selftest-{task.name}-") as tmp:
             ws = Path(tmp) / "ws"
             shutil.copytree(task.fixture_dir, ws)
 

@@ -21,9 +21,9 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from solm import db, fingerprint, metrics
-from solm.config import WORKSPACE_ROOT, Config, ModelSpec, TaskSpec
-from solm.runners import RunResult, get_runner, merge_results
+from agent_state import db, fingerprint, metrics
+from agent_state.config import WORKSPACE_ROOT, Config, ModelSpec, TaskSpec
+from agent_state.runners import RunResult, get_runner, merge_results
 
 _print_lock = threading.Lock()
 
@@ -39,7 +39,7 @@ def _prepare_workspace(task: TaskSpec, model: ModelSpec, trial: int, batch_id: s
         shutil.rmtree(ws)
     ws.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(task.fixture_dir, ws)
-    git = ["git", "-c", "user.email=solm@local", "-c", "user.name=solm", "-c", "commit.gpgsign=false"]
+    git = ["git", "-c", "user.email=agent-state@local", "-c", "user.name=agent-state", "-c", "commit.gpgsign=false"]
     subprocess.run([*git, "init", "-q"], cwd=ws, capture_output=True)
     subprocess.run([*git, "add", "-A"], cwd=ws, capture_output=True)
     subprocess.run([*git, "commit", "-qm", "fixture"], cwd=ws, capture_output=True)

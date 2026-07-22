@@ -12,11 +12,11 @@ TASKS_DIR = REPO_ROOT / "tasks"
 DATA_DIR = REPO_ROOT / "data"
 REPORTS_DIR = REPO_ROOT / "reports"
 LOGS_DIR = REPO_ROOT / "logs"
-WORKSPACE_ROOT = Path.home() / ".cache" / "state-of-llm" / "workspaces"
+WORKSPACE_ROOT = Path.home() / ".cache" / "agent-state" / "workspaces"
 
 DIMENSIONS = ["intelligence", "tool_use", "diligence", "plot", "judgment"]
 
-# One representative task per dimension for `solm run --quick`.
+# One representative task per dimension for `agent-state run --quick`.
 QUICK_TASKS = [
     "bugfix-intervals",
     "toolhunt-rename",
@@ -42,7 +42,7 @@ class ModelSpec:
     runner: str  # "claude" | "codex"
     model: str = ""
     extra_args: list[str] = field(default_factory=list)
-    enabled: bool = True  # disabled specs run only via `solm run --models <name>`
+    enabled: bool = True  # disabled specs run only via `agent-state run --models <name>`
     trials: int | None = None  # per-model override of [run] trials (cost lever)
 
 

@@ -10,9 +10,9 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from solm import db, fingerprint
-from solm.config import DIMENSIONS, REPORTS_DIR, TaskSpec, load_config, load_tasks
-from solm.scoring import DayScore, day_scores, score_day
+from agent_state import db, fingerprint
+from agent_state.config import DIMENSIONS, REPORTS_DIR, TaskSpec, load_config, load_tasks
+from agent_state.scoring import DayScore, day_scores, score_day
 
 VERDICT_STYLE = {"GREEN": "bold green", "YELLOW": "bold yellow", "RED": "bold red"}
 VERDICT_EMOJI = {"GREEN": "🟢", "YELLOW": "🟡", "RED": "🔴"}
@@ -42,7 +42,7 @@ def compute(date: str | None = None):
     conn = db.connect()
     date = date or db.latest_date(conn)
     if not date:
-        raise SystemExit("no runs recorded yet — run `solm run` first")
+        raise SystemExit("no runs recorded yet — run `agent-state run` first")
     day_runs = db.fetch_runs(conn, date)
     all_runs = db.fetch_runs(conn)
     batches = db.fetch_batches(conn)
@@ -210,7 +210,7 @@ def notify(date: str | None = None) -> None:
         return
     if load_config().burnin.active(date):
         title = "State of LLM: battery complete 🔒"
-        msg = f"{len(day_runs)} runs recorded. Log your gut: solm gut fine|off"
+        msg = f"{len(day_runs)} runs recorded. Log your gut: agent-state gut fine|off"
     else:
         parts = [f"{VERDICT_EMOJI[s.verdict]} {m} {s.composite:.0f}" for m, s in sorted(scores.items())]
         worst = max((s.verdict for s in scores.values()),

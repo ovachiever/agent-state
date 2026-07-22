@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from solm.config import DATA_DIR
+from agent_state.config import DATA_DIR
 
 DB_PATH = DATA_DIR / "state.db"
 

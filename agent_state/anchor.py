@@ -19,8 +19,8 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-from solm import db
-from solm.config import REPO_ROOT, Config
+from agent_state import db
+from agent_state.config import REPO_ROOT, Config
 
 ANCHORS_DIR = REPO_ROOT / "anchors"
 API_TIMEOUT = 900
@@ -195,7 +195,7 @@ def status(set_name: str) -> None:
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
     if not rows:
-        print(f"no anchor runs recorded for {set_name} — run: solm anchor establish")
+        print(f"no anchor runs recorded for {set_name} — run: agent-state anchor establish")
         return
     by_model: dict[str, dict] = {}
     for r in rows:

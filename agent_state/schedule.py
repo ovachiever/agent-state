@@ -6,9 +6,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from solm.config import LOGS_DIR, REPO_ROOT
+from agent_state.config import LOGS_DIR, REPO_ROOT
 
-LABEL = "com.state-of-llm.daily"
+LABEL = "com.agent-state.daily"
 PLIST_PATH = Path.home() / "Library" / "LaunchAgents" / f"{LABEL}.plist"
 
 PLIST_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
@@ -20,7 +20,7 @@ PLIST_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
     <array>
         <string>{python}</string>
         <string>-m</string>
-        <string>solm</string>
+        <string>agent_state</string>
         <string>daily</string>
     </array>
     <key>WorkingDirectory</key><string>{repo}</string>
@@ -67,10 +67,10 @@ def status() -> None:
     if line:
         print(f"loaded: {line.strip()}")
         print(f"plist: {PLIST_PATH}")
-        from solm.config import load_config
+        from agent_state.config import load_config
 
         until = load_config().auto_until
         if until:
             print(f"kill-switch: auto-runs stop after {until}")
     else:
-        print("not installed (run: solm schedule install)")
+        print("not installed (run: agent-state schedule install)")

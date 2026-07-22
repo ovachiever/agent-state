@@ -22,7 +22,7 @@ import random
 import statistics
 from dataclasses import dataclass, field
 
-from solm.config import DIMENSIONS, StatsConfig, TaskSpec
+from agent_state.config import DIMENSIONS, StatsConfig, TaskSpec
 
 GREEN, YELLOW, RED = "GREEN", "YELLOW", "RED"
 

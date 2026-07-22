@@ -59,6 +59,14 @@ def cmd_daily(args) -> None:
     tasks = load_tasks()
     date = harness.run_batch(cfg, cfg.models, tasks, cfg.trials)
     _escalate_until_confident(cfg, cfg.models, tasks, date, cfg.trials, max_trials=12)
+    if cfg.anchor_daily:
+        from solm import anchor
+
+        for set_name in cfg.anchor_sets:
+            try:
+                anchor.run_set(cfg, set_name, tag="daily")
+            except Exception as e:  # anchor trouble must never sink the battery report
+                print(f"anchor {set_name} failed: {e}")
     path = report.save_markdown(date)
     if cfg.burnin.active(date):
         print(f"🔒 blind burn-in: verdicts sealed (report written to {path}, don't peek)")
@@ -203,6 +211,18 @@ def cmd_costs(args) -> None:
             usd = "tokens"
         print(f"{r['date']:<12} {r['model']:<18} {r['runs']:>5} {usd:>14} {in_tok:>10} {out_tok:>9}")
     print(f"\ntotal recorded/estimated-low API spend: ${total:.2f}")
+
+    conn = db.connect()
+    arows = conn.execute("""
+        SELECT date, model, count(*) calls, sum(input_tokens) in_tok, sum(output_tokens) out_tok
+        FROM anchor_runs GROUP BY date, model ORDER BY date DESC LIMIT ?
+    """, (args.days * 4,)).fetchall()
+    conn.close()
+    if arows:
+        print("\nanchor calls (raw API, tokens):")
+        for r in arows:
+            print(f"{r['date']:<12} {r['model']:<18} {r['calls']:>5} calls "
+                  f"{r['in_tok'] or 0:>10} in {r['out_tok'] or 0:>9} out")
 
 
 def cmd_tasks(args) -> None:

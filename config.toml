@@ -9,6 +9,12 @@ concurrency = 8       # parallel agent processes
 default_timeout_s = 480
 keep_workspace_days = 7
 
+[anchor]
+# Frozen-set runs folded into the nightly job. 1 rep x 30 items x 2 models.
+# Cadence lever: daily = false to run manually via `solm anchor run`.
+daily = true
+sets = ["aime30"]
+
 [pricing]
 # USD per million tokens, for estimating codex API spend (claude reports its
 # own cost_usd). Grounded 2026-07-22 against OpenAI's published gpt-5.6 rates.

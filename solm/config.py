@@ -119,6 +119,8 @@ class Config:
     stats: StatsConfig
     burnin: BurninConfig
     pricing: dict[str, dict]
+    anchor_daily: bool
+    anchor_sets: list[str]
 
 
 def _resolve_bin(kind: str, configured: str) -> str:
@@ -169,6 +171,8 @@ def load_config(path: Path | None = None) -> Config:
         codex_home=raw.get("codex", {}).get("home", ""),
         claude_strip_api_key=bool(raw.get("claude", {}).get("strip_api_key", True)),
         pricing=dict(raw.get("pricing", {})),
+        anchor_daily=bool(raw.get("anchor", {}).get("daily", False)),
+        anchor_sets=list(raw.get("anchor", {}).get("sets", [])),
         burnin=BurninConfig(
             blind=bool(raw.get("burnin", {}).get("blind", False)),
             start=str(raw.get("burnin", {}).get("start", "")),

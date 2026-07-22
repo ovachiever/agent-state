@@ -1,0 +1,11 @@
+[task]
+name = "bugfix-scheduler"
+title = "Fix a cooperative task scheduler with several interacting bugs"
+timeout_s = 600
+prompt = """
+The file scheduler.py contains a cooperative task scheduler. The docstrings are the complete and precise specification — read every clause: ready-order law, budget accounting, requeue semantics, cancellation, callback lifecycle, and the reentrancy guarantees. The implementation is known to violate the spec in several distinct places — more than two — and some violations only show up when features interact. The basic test in test_basic.py already passes; that proves nothing. Find and fix every violation so the implementation fully satisfies the docstrings. Do not change any docstring, method name, or signature. Do not rewrite the module from scratch beyond what the fixes require.
+"""
+
+[task.weights]
+intelligence = 1.0
+tool_use = 0.2

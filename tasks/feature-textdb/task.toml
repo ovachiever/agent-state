@@ -1,0 +1,11 @@
+[task]
+name = "feature-textdb"
+title = "Implement an append-only text database engine with WAL crash recovery to spec"
+timeout_s = 600
+prompt = """
+Implement the TextDB class in textdb.py. The README.md in this repo is the complete specification and every clause of it is contractual — the exact byte-level record format, the write-ahead journal protocol, the recovery rules for torn journals (including the prefix rule and the already-durable skip), byte-exact compaction, iteration-order semantics, the secondary index, the stats() contract, the exact exception types and messages, and close() semantics. Subtle consistency clauses (what next_seq does across compact/reopen, which validations happen in which order, when the journal must be empty) are as binding as the obvious ones. Write the full implementation; leave nothing stubbed. Standard library only; do not add dependencies, do not change the class name, method names, or exception names.
+"""
+
+[task.weights]
+intelligence = 1.0
+diligence = 0.5

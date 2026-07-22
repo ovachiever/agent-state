@@ -85,6 +85,25 @@ class StatsConfig:
 
 
 @dataclass
+class BurninConfig:
+    blind: bool = False
+    start: str = ""
+    days: int = 14
+
+    def days_left(self, today: str) -> int:
+        """Blind days remaining as of `today` (0 = window over or not configured)."""
+        if not (self.blind and self.start):
+            return 0
+        import datetime as dt
+
+        end = dt.date.fromisoformat(self.start) + dt.timedelta(days=self.days)
+        return max(0, (end - dt.date.fromisoformat(today)).days)
+
+    def active(self, today: str) -> bool:
+        return self.days_left(today) > 0
+
+
+@dataclass
 class Config:
     trials: int
     concurrency: int
@@ -98,6 +117,8 @@ class Config:
     codex_home: str
     claude_strip_api_key: bool
     stats: StatsConfig
+    burnin: BurninConfig
+    pricing: dict[str, dict]
 
 
 def _resolve_bin(kind: str, configured: str) -> str:
@@ -147,6 +168,12 @@ def load_config(path: Path | None = None) -> Config:
         codex_sandbox=raw.get("codex", {}).get("sandbox", "workspace-write"),
         codex_home=raw.get("codex", {}).get("home", ""),
         claude_strip_api_key=bool(raw.get("claude", {}).get("strip_api_key", True)),
+        pricing=dict(raw.get("pricing", {})),
+        burnin=BurninConfig(
+            blind=bool(raw.get("burnin", {}).get("blind", False)),
+            start=str(raw.get("burnin", {}).get("start", "")),
+            days=int(raw.get("burnin", {}).get("days", 14)),
+        ),
         stats=StatsConfig(
             material_drop=float(stats_raw.get("material_drop", 6.0)),
             baseline_window=int(stats_raw.get("baseline_window", 14)),

@@ -200,18 +200,23 @@ def save_markdown(date: str | None = None) -> str:
 
 
 def notify(date: str | None = None) -> None:
-    """Post a macOS notification with the verdict line."""
+    """Post a macOS notification. During the blinded burn-in it carries NO
+    verdict — the light must not peek at the observer."""
     import subprocess
 
     try:
-        date, scores, *_ = compute(date)
+        date, scores, day_runs, *_ = compute(date)
     except SystemExit:
         return
-    parts = [f"{VERDICT_EMOJI[s.verdict]} {m} {s.composite:.0f}" for m, s in sorted(scores.items())]
-    worst = max((s.verdict for s in scores.values()),
-                key=lambda v: ["GREEN", "YELLOW", "RED"].index(v))
-    msg = "  ".join(parts)
-    title = f"State of LLM: {VERDICT_CALL[worst]}"
+    if load_config().burnin.active(date):
+        title = "State of LLM: battery complete 🔒"
+        msg = f"{len(day_runs)} runs recorded. Log your gut: solm gut fine|off"
+    else:
+        parts = [f"{VERDICT_EMOJI[s.verdict]} {m} {s.composite:.0f}" for m, s in sorted(scores.items())]
+        worst = max((s.verdict for s in scores.values()),
+                    key=lambda v: ["GREEN", "YELLOW", "RED"].index(v))
+        msg = "  ".join(parts)
+        title = f"State of LLM: {VERDICT_CALL[worst]}"
     subprocess.run(
         ["osascript", "-e",
          f'display notification "{msg}" with title "{title}"'],

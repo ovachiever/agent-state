@@ -43,6 +43,21 @@ CREATE TABLE IF NOT EXISTS gut_log (
     label TEXT NOT NULL,            -- fine | off
     ts TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS anchor_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    ts TEXT NOT NULL,
+    model TEXT NOT NULL,
+    set_name TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    tag TEXT NOT NULL,              -- anchor | daily
+    correct INTEGER NOT NULL,
+    answer_given TEXT DEFAULT '',
+    input_tokens INTEGER,
+    output_tokens INTEGER,
+    error TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_anchor_date ON anchor_runs(set_name, model, tag, date);
 """
 
 

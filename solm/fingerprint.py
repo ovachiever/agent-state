@@ -28,10 +28,33 @@ def _file_hash(path: Path) -> str:
         return "absent"
 
 
+def _bin_env(binary: str, extra: dict | None = None) -> dict:
+    """Child env with the binary's own dir on PATH (launchd gives a bare PATH)."""
+    import os
+
+    env = dict(os.environ)
+    env["PATH"] = f"{Path(binary).resolve().parent}:{env.get('PATH', '')}"
+    if extra:
+        env.update(extra)
+    return env
+
+
 def _version(binary: str) -> str:
     try:
-        out = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=15)
+        out = subprocess.run([binary, "--version"], capture_output=True, text=True,
+                             timeout=15, env=_bin_env(binary))
         return out.stdout.strip() or out.stderr.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return "unknown"
+
+
+def _codex_auth(cfg: Config) -> str:
+    """Auth mode of the eval codex home — a billing change is a yardstick change."""
+    extra = {"CODEX_HOME": cfg.codex_home} if cfg.codex_home else None
+    try:
+        out = subprocess.run([cfg.codex_bin, "login", "status"], capture_output=True,
+                             text=True, timeout=15, env=_bin_env(cfg.codex_bin, extra))
+        return (out.stdout.strip() or out.stderr.strip())[:80]
     except (OSError, subprocess.TimeoutExpired):
         return "unknown"
 
@@ -61,6 +84,7 @@ def collect(cfg: Config, tasks: list[TaskSpec]) -> dict:
     return {
         "claude_version": _version(cfg.claude_bin),
         "codex_version": _version(cfg.codex_bin),
+        "codex_auth": _codex_auth(cfg),
         "claude_md": _file_hash(Path.home() / ".claude" / "CLAUDE.md"),
         "claude_settings": _claude_settings_summary(),
         "codex_config": _codex_config_hash(),

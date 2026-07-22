@@ -29,7 +29,7 @@ Three commitments shape the design:
    which removes the tooling from the picture. Both decline: the lab changed
    the model. Only the CLI half declines: a tool update changed your setup.
    The difference between the two is the diagnosis.
-3. **The instrument earns trust before it spends money.** For two weeks its
+3. **The instrument earns trust before it spends forever-money.** For two weeks its
    verdicts stay sealed while you log a one-word daily gut call, blind. Then
    the columns get compared. If the machine can't predict your gut, the
    machine is wrong, and it removes its own schedule via a built-in

@@ -9,6 +9,14 @@ concurrency = 8       # parallel agent processes
 default_timeout_s = 480
 keep_workspace_days = 7
 
+[schedule]
+# Dead-man's switch: nightly auto-runs happen while today <= auto_until.
+# The morning after, the job uninstalls its own launchd plist and notifies,
+# so the bake-in can't silently run forever. Renew: bump the date, then
+# `solm schedule install`. Aligned with the burn-in window's end on purpose:
+# unsealing day and renew-or-retire day are the same decision.
+auto_until = "2026-08-05"
+
 [anchor]
 # Frozen-set runs folded into the nightly job. 1 rep x 30 items x 2 models.
 # Cadence lever: daily = false to run manually via `solm anchor run`.

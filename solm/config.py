@@ -121,6 +121,7 @@ class Config:
     pricing: dict[str, dict]
     anchor_daily: bool
     anchor_sets: list[str]
+    auto_until: str
 
 
 def _resolve_bin(kind: str, configured: str) -> str:
@@ -173,6 +174,7 @@ def load_config(path: Path | None = None) -> Config:
         pricing=dict(raw.get("pricing", {})),
         anchor_daily=bool(raw.get("anchor", {}).get("daily", False)),
         anchor_sets=list(raw.get("anchor", {}).get("sets", [])),
+        auto_until=str(raw.get("schedule", {}).get("auto_until", "")),
         burnin=BurninConfig(
             blind=bool(raw.get("burnin", {}).get("blind", False)),
             start=str(raw.get("burnin", {}).get("start", "")),

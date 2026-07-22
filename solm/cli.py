@@ -53,9 +53,29 @@ def _escalate_until_confident(cfg, models, tasks, date, base_trials, max_trials)
 
 
 def cmd_daily(args) -> None:
+    import datetime as dt
+    import subprocess
+
     from solm import harness, report
 
     cfg = load_config()
+    today = dt.date.today().isoformat()
+    if cfg.auto_until and today > cfg.auto_until:
+        # Dead-man's switch: notify first, then remove the plist, then stop.
+        subprocess.run(
+            ["osascript", "-e",
+             'display notification "Auto-runs expired after the bake-in window. '
+             'Renew: bump [schedule] auto_until + solm schedule install. '
+             'Retire: nothing to do — the schedule removed itself." '
+             'with title "State of LLM: kill-switch fired 🛑"'],
+            capture_output=True,
+        )
+        from solm import schedule
+
+        schedule.remove()
+        print(f"kill-switch: auto_until {cfg.auto_until} passed; schedule uninstalled, no battery run")
+        return
+
     tasks = load_tasks()
     date = harness.run_batch(cfg, cfg.models, tasks, cfg.trials)
     _escalate_until_confident(cfg, cfg.models, tasks, date, cfg.trials, max_trials=12)

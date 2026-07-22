@@ -67,5 +67,10 @@ def status() -> None:
     if line:
         print(f"loaded: {line.strip()}")
         print(f"plist: {PLIST_PATH}")
+        from solm.config import load_config
+
+        until = load_config().auto_until
+        if until:
+            print(f"kill-switch: auto-runs stop after {until}")
     else:
         print("not installed (run: solm schedule install)")

@@ -27,12 +27,10 @@ QUICK_TASKS = [
 
 FALLBACK_BINS = {
     "claude": [
-        "/Users/erik/.nvm/versions/node/v22.16.0/bin/claude",
         str(Path.home() / ".claude" / "local" / "claude"),
         str(Path.home() / ".local" / "bin" / "claude"),
     ],
     "codex": [
-        "/Users/erik/.nvm/versions/node/v22.16.0/bin/codex",
         str(Path.home() / ".local" / "bin" / "codex"),
     ],
 }
@@ -138,6 +136,11 @@ def _resolve_bin(kind: str, configured: str) -> str:
 
 def load_config(path: Path | None = None) -> Config:
     path = path or (REPO_ROOT / "config.toml")
+    if not path.exists():
+        raise SystemExit(
+            f"no config at {path} — start from the template:\n"
+            f"  cp {REPO_ROOT / 'config.example.toml'} {path}"
+        )
     with open(path, "rb") as f:
         raw = tomllib.load(f)
 

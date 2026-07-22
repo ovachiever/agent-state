@@ -8,7 +8,7 @@ from pathlib import Path
 
 from solm.config import LOGS_DIR, REPO_ROOT
 
-LABEL = "com.erik.state-of-llm"
+LABEL = "com.state-of-llm.daily"
 PLIST_PATH = Path.home() / "Library" / "LaunchAgents" / f"{LABEL}.plist"
 
 PLIST_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>

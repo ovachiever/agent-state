@@ -1,0 +1,87 @@
+# state-of-llm configuration template.
+# Copy to config.toml and adjust paths/models for your machine:
+#   cp config.example.toml config.toml
+#
+# Models are tested through the real CLIs you code with, inheriting your live
+# settings. That is deliberate: this measures the daily driver, not a lab
+# condition. The anchor layer hits the raw provider APIs separately.
+
+[run]
+trials = 2            # default runs per (model, task); per-model override below
+concurrency = 8       # parallel agent processes
+default_timeout_s = 480
+keep_workspace_days = 7
+
+[schedule]
+# Dead-man's switch: nightly auto-runs happen while today <= auto_until.
+# Past it, the job uninstalls its own launchd plist and notifies, so a trial
+# period can't silently bill you forever. Renew: bump the date, then
+# `solm schedule install`. Empty string disables the switch.
+auto_until = ""
+
+[anchor]
+# Frozen-set benchmark runs folded into the nightly job (raw provider APIs).
+daily = true
+sets = ["aime30"]
+
+[pricing]
+# USD per million tokens, used to estimate spend for models whose CLI does not
+# report cost. Cache reads bill at ~10% of input, so estimates show a range.
+"codex-sol-xhigh" = { input = 5.0, output = 30.0 }
+
+[burnin]
+# Blinded validation window: notifications go verdict-free and verdict/report/
+# burnin seal their output (--unseal breaks the blind deliberately).
+# Log your gut daily: solm gut fine|off. Comparison unlocks when it ends.
+blind = true
+start = ""            # YYYY-MM-DD; empty disables
+days = 14
+
+[stats]
+# Composite points that actually matter to you: the RED "touch grass" line.
+# Smaller sustained decay still surfaces via the CUSUM drift alarm; one-day
+# flux below this line stays advisory YELLOW at most.
+material_drop = 15.0
+baseline_window = 14
+min_baseline_days = 3
+bootstrap_iters = 2000
+
+[binaries]
+# Absolute paths so launchd runs work without your interactive shell PATH.
+claude = ""
+codex = ""
+
+[codex]
+# Eval sandbox for codex runs (your daily config may be more permissive; eval
+# tasks only need to write their own workspace).
+sandbox = "workspace-write"
+# Optional isolated CODEX_HOME: separate auth (e.g. API-key billing) and a
+# clean config for eval runs, leaving your interactive ~/.codex untouched.
+# Set up once:  mkdir -p ~/.codex-solm && printenv OPENAI_API_KEY | \
+#   CODEX_HOME=~/.codex-solm codex login --with-api-key
+home = ""
+
+[claude]
+# Billing switch. false = eval runs bill the API via your exported
+# ANTHROPIC_API_KEY. true = strip the key so runs draw your claude.ai plan
+# quota instead (protects dollars, taxes the quota you code with).
+strip_api_key = false
+
+# Effort is pinned per model spec so the yardstick can't drift with settings
+# edits: claude via --effort, codex via -c model_reasoning_effort.
+# enabled = false keeps a spec available for `solm run --models <name>`
+# without adding it to the daily battery. trials overrides [run] trials.
+
+[[models]]
+name = "fable-xhigh"
+runner = "claude"
+model = "claude-fable-5"
+extra_args = ["--effort", "xhigh"]
+trials = 2
+
+[[models]]
+name = "codex-sol-xhigh"
+runner = "codex"
+model = "gpt-5.6-sol"
+extra_args = ["-c", 'model_reasoning_effort="xhigh"']
+trials = 2

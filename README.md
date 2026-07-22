@@ -187,9 +187,12 @@ skim-level implementation lands 0.57-0.76.
   scores aren't difficulty-calibrated.
 - Not psychometrics. The dimensions are engineered proxies. Their power lives
   in the pairing, the trend, and the anchor, not in any absolute number.
-- Not sandboxed. Verifiers execute model-written code directly (the agents
-  already ran with bypassed permissions in the same workspace). Understand
-  that before running this on a machine you care about.
+- Not sandboxed. The claude arm runs with permissions bypassed (headless
+  agents can't answer prompts, and the point is measuring your real setup),
+  and verifiers execute model-written code directly. Understand that before
+  running this on a machine you care about. A confined variant is possible
+  (scoped --allowedTools, or a container); expect scores to diverge from
+  your interactive experience if you use one.
 - Not self-stable. Editing tasks, weights, or frozen sets rewrites what
   history means. The fingerprint warns you when today crossed such an edit.
   The discipline is yours.

@@ -124,6 +124,12 @@ class ClaudeRunner:
         self.extra_env = _path_env(self.bin)
 
     def _base_cmd(self, spec: ModelSpec) -> list[str]:
+        # Deliberate: headless eval agents can't answer permission prompts, and
+        # the harness measures the daily driver, which runs with broad
+        # permissions. Workspaces are throwaway git dirs. If you want a
+        # confined variant, swap this flag for scoped permissions, e.g.
+        # ["--permission-mode", "acceptEdits", "--allowedTools", "Edit,Write,Read,Grep,Glob,Bash"]
+        # and accept that scores may diverge from your interactive experience.
         cmd = [
             self.bin,
             "--output-format", "json",

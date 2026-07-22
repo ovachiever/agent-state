@@ -66,7 +66,10 @@ def call_anthropic(model: str, problem: str) -> tuple[str, int | None, int | Non
     payload = {
         "model": model,
         "max_tokens": 32000,
-        "thinking": {"type": "enabled", "budget_tokens": 24000},
+        # Fable 5 contract (verified live): adaptive thinking + output_config
+        # effort. xhigh matches the CLI arm so both instruments share effort.
+        "thinking": {"type": "adaptive"},
+        "output_config": {"effort": "xhigh"},
         "messages": [{"role": "user", "content": PROMPT.format(problem=problem)}],
     }
     out = _post_json(
